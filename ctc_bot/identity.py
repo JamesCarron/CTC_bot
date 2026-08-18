@@ -104,8 +104,13 @@ class Candidate:
     claimed_by: str | None = None  # athlete id, if already claimed
 
     @property
+    def finished(self) -> bool:
+        """A zero result means entered but never timed - a DNS or a spare entry."""
+        return bool(self.seconds and self.seconds > 0)
+
+    @property
     def time(self) -> str:
-        return format_time(self.seconds)
+        return format_time(self.seconds) if self.finished else "no time"
 
     def describe(self) -> str:
         held = f"  [already claimed by {self.claimed_by}]" if self.claimed_by else ""

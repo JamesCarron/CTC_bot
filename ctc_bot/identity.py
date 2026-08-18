@@ -36,6 +36,28 @@ INFERRED = "inferred"  # name variant learned from that athlete's own claims
 PROVISIONAL = "provisional"  # nobody has claimed it; grouped by exact name
 AMBIGUOUS = "ambiguous"  # name maps to more than one claimed athlete
 CONTESTED = "contested"  # two people share this name within a single event
+PLACEHOLDER = "placeholder"  # not a person's name at all
+
+# Only a claim, or a spelling learned from one, makes an identity trustworthy.
+VERIFIED_SOURCES = frozenset({CLAIMED, INFERRED})
+
+# Below this many races a fitted trend line says more about noise than form.
+MIN_RACES_FOR_TREND = 3
+
+# Entries that are not people. 91 rows across the club's history are recorded
+# as "unknown" (62), "name" (17), a bare bib number, or "test". They still
+# raced, so they keep counting towards field size for z-scores and percentiles,
+# but they must never become an athlete or a trend line.
+_PLACEHOLDER_RE = re.compile(
+    r"^(unknown|name|test|tbc|n/?a|none|guest|anon\w*|athlete|placeholder|x+|\?+|-+|\.+|\d+)$",
+    re.I,
+)
+
+
+def is_placeholder(name: str) -> bool:
+    """True if this entry is a stand-in rather than a person."""
+    normalised = normalise(name)
+    return not normalised or bool(_PLACEHOLDER_RE.match(normalised))
 
 
 def normalise(name: str) -> str:
@@ -132,6 +154,22 @@ class Resolution:
     @property
     def needs_claim(self) -> bool:
         return self.source in {AMBIGUOUS, CONTESTED}
+
+    @property
+    def verified(self) -> bool:
+        """Whether a person has confirmed this identity.
+
+        A provisional group is only "everyone who typed this exact name", which
+        over seven years may well be more than one person - five of the club's
+        most active entries are bare first names. Such trends are shown, but
+        marked unverified rather than presented as fact.
+        """
+        return self.source in VERIFIED_SOURCES
+
+    @property
+    def is_athlete(self) -> bool:
+        """Whether this row belongs to a trendable person at all."""
+        return self.source != PLACEHOLDER
 
 
 class Registry:
@@ -278,10 +316,12 @@ class Registry:
 
 
 def contested_names(stored_events) -> set[str]:
-    """Names proven to belong to more than one person.
+    """Names that cannot safely be auto-grouped.
 
-    A name appearing twice *within a single event* is direct evidence of two
-    different people sharing it, so it can never be auto-grouped across events.
+    A name appearing twice *within a single event* is either two people sharing
+    it or one person entered twice - the club's history contains both, often
+    with one of the pair carrying no time at all. Neither reading can be
+    assumed, so such names are flagged for a claim rather than merged.
     """
     contested: set[str] = set()
     for stored in stored_events:
@@ -301,6 +341,7 @@ def resolve(stored_events, registry: Registry) -> dict[tuple[str, str], Resoluti
 
     Precedence:
 
+    0. **placeholder** - not a person ("unknown", "name", a bare bib number).
     1. **claimed** - the athlete ticked this row.
     2. **inferred** - the spelling was learned from exactly one athlete's claims.
     3. **ambiguous** - the spelling belongs to two or more claimed athletes.
@@ -308,6 +349,7 @@ def resolve(stored_events, registry: Registry) -> dict[tuple[str, str], Resoluti
     5. **provisional** - unclaimed, but the spelling is unique, so group by name.
     """
     contested = contested_names(stored_events)
+    contested -= {name for name in contested if _PLACEHOLDER_RE.match(name)}
     resolutions: dict[tuple[str, str], Resolution] = {}
 
     for stored in stored_events:
@@ -317,6 +359,10 @@ def resolve(stored_events, registry: Registry) -> dict[tuple[str, str], Resoluti
             raw_name = row.get("Name", "")
             name = normalise(raw_name)
             display = (raw_name or "").strip()
+
+            if is_placeholder(raw_name):
+                resolutions[key] = Resolution(None, display or "(unnamed)", PLACEHOLDER)
+                continue
 
             owner = registry.claim_owner(stored.code, race_id)
             if owner:

@@ -6,10 +6,12 @@
     ctc courses -- --set aquathon:Swim=0.75 --set aquathon:Run=3.4
     ctc courses -- --reset                        # back to the built-in defaults
 
-These distances are the authority for every pace and speed figure. The distance
-printed on an individual RaceClocker event page is deliberately ignored: across
-105 time trials it drifts between 13.0 and 14.0 km, which would inject phantom
-variation into every trend. The club time trial is 13 km by decision.
+These distances are the authority for every pace and speed figure. The figure
+printed on an individual RaceClocker event page is never used directly.
+
+The time trial runs on two routes - roughly 13 km and 13.8 km - which the club
+alternates between within a season. An event is matched to its route by the
+distance it advertises, and that route's canonical distance is used for pace.
 """
 
 from __future__ import annotations
@@ -29,6 +31,11 @@ def show(courses: dict[str, config.Course]) -> None:
     for race_type, course in courses.items():
         legs = ", ".join(f"{leg.name} {leg.distance_km} km" for leg in course.legs)
         print(f"  {race_type:<12}{course.distance_km:>6} km total   {legs}")
+        for route in course.routes:
+            print(
+                f"      route: {route.name:<18}{route.distance_km:>6} km"
+                f"   for events listed {route.min_km}-{route.max_km} km"
+            )
 
 
 def apply_change(courses: dict[str, config.Course], spec: str) -> None:

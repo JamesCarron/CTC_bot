@@ -62,30 +62,26 @@ def test_defaults_are_not_mutated_by_callers(tmp_path):
 # ---- the configured distance is the only one used ------------------------
 
 
-def test_configured_distance_is_used_for_every_event():
-    """One distance per race type, regardless of what any event page says.
+def test_page_distance_is_never_used_directly():
+    """Eight distinct figures appear across the club's 105 time trials.
 
-    Across the club's 105 time trials the listed distance drifts between 13.0
-    and 14.0 km - the same road measured by different devices over seven years.
-    Using the per-event figure would inject up to 7% of phantom variation into
-    pace trends, larger than most athletes' year-on-year improvement.
+    Using them as published would score the same 25-minute ride eight different
+    ways. Resolving through routes collapses them to the two real courses.
     """
     listed_across_history = [13.0, 13.1, 13.5, 13.6, 13.62, 13.8, 13.9, 14.0]
+    seconds = 1500.0  # same rider, same effort, every time
 
-    # Same rider, same 25-minute effort, eight differently-measured events.
-    seconds = 1500.0
-    speeds_from_config = {
-        round(config.distance_km(cls.TIME_TRIAL) / (seconds / 3600), 4)
-        for _ in listed_across_history
-    }
     speeds_from_page = {
         round(listed / (seconds / 3600), 4) for listed in listed_across_history
     }
+    speeds_from_routes = {
+        round(config.event_distance_km(cls.TIME_TRIAL, listed) / (seconds / 3600), 4)
+        for listed in listed_across_history
+    }
 
-    # The configured course gives one speed; the page would give eight.
-    assert speeds_from_config == {31.2}
-    assert len(speeds_from_page) == 8
-    assert max(speeds_from_page) - min(speeds_from_page) > 2.0  # km/h of noise
+    assert len(speeds_from_page) == 8  # eight answers to one question
+    assert len(speeds_from_routes) == 2  # one per real course
+    assert max(speeds_from_page) - min(speeds_from_page) > 2.0  # km/h of noise removed
 
 
 def test_leg_distances_are_configured_not_published():
@@ -118,3 +114,61 @@ def test_shipped_config_file_matches_the_defaults():
     on_disk = config.load_courses()
     assert on_disk[cls.TIME_TRIAL].distance_km == 13.0
     assert on_disk[cls.AQUATHON].distance_km == 4.1
+
+
+# ---- routes: the time trial runs on two courses --------------------------
+
+
+def test_time_trial_has_two_routes():
+    """Listed distances fall into two clusters that overlap in 2022-2025.
+
+    They are alternating courses, not one course remeasured, so an event is
+    matched to its route by the distance it advertises rather than by date.
+    """
+    routes = config.load_courses()[cls.TIME_TRIAL].routes
+    assert [r.distance_km for r in routes] == [13.0, 13.8]
+
+
+@pytest.mark.parametrize(
+    "listed, expected",
+    [
+        (13.0, 13.0), (13.1, 13.0),                       # short-course cluster
+        (13.5, 13.8), (13.6, 13.8), (13.62, 13.8),        # long-course cluster
+        (13.8, 13.8), (13.9, 13.8), (14.0, 13.8),
+    ],
+)
+def test_every_listed_distance_maps_to_a_route(listed, expected):
+    assert config.event_distance_km(cls.TIME_TRIAL, listed) == expected
+
+
+def test_unlisted_event_falls_back_to_the_course_distance():
+    """One 2026 time trial advertises no distance at all."""
+    assert config.event_distance_km(cls.TIME_TRIAL, None) == 13.0
+
+
+def test_wobble_within_a_route_is_flattened():
+    """13.0 and 13.1 are the same road; they must not score different speeds."""
+    assert config.event_distance_km(cls.TIME_TRIAL, 13.0) == config.event_distance_km(
+        cls.TIME_TRIAL, 13.1
+    )
+
+
+def test_the_two_routes_are_kept_apart():
+    """A 6% difference in course length is real and must not be flattened."""
+    short = config.event_distance_km(cls.TIME_TRIAL, 13.0)
+    long = config.event_distance_km(cls.TIME_TRIAL, 13.8)
+    assert short != long
+    assert round((long - short) / short * 100) == 6
+
+
+def test_aquathon_has_no_routes():
+    """Only the time trial alternates courses."""
+    assert config.load_courses()[cls.AQUATHON].routes == []
+    assert config.event_distance_km(cls.AQUATHON, 8.0) == 4.1
+
+
+def test_routes_survive_a_config_round_trip(tmp_path):
+    path = tmp_path / "courses.json"
+    config.save_courses(config.load_courses(), path)
+    reloaded = config.load_courses(path)
+    assert config.event_distance_km(cls.TIME_TRIAL, 13.8, reloaded) == 13.8

@@ -5,14 +5,17 @@ found in the club's real history:
 
 * The sample aquathon reports ``8.0 km`` against a real 600 m swim + 3.5 km run
   (4.1 km). Taking it at face value puts every aquathon pace out by ~2x.
-* Across 105 time trials the listed distance drifts between 13.0 and 14.0 km
-  (13.0, 13.1, 13.5, 13.6, 13.62, 13.8, 13.9, 14.0) - almost certainly the same
-  road measured by different devices over seven years, not eight courses. Left
-  alone it would inject up to 7% of phantom variation into every pace trend,
-  larger than most athletes' year-on-year improvement.
+* The time trial runs on **two different routes**. Listed distances across 105
+  time trials fall into two clean clusters - 13.0-13.1 km (60 events) and
+  13.5-14.0 km (44 events) - and the two overlap in 2022-2025, so they are
+  alternating courses rather than one course remeasured. Within a cluster the
+  small wobble (13.0 vs 13.1) is measurement noise and is flattened to one
+  canonical figure.
 
-So one distance is configured per race type and used for **every** event of
-that type. The club time trial is 13 km by decision.
+So each race type carries a canonical distance, and where a type runs on more
+than one route, a route is matched by the distance the event advertises. Pace
+then uses the route's canonical distance, and trends can mark where an athlete
+switched course rather than reading it as a change in form.
 
 Distances are admin-editable via ``data/courses.json``, which overrides these
 defaults when present:
@@ -41,6 +44,24 @@ class Leg:
 
 
 @dataclass
+class Route:
+    """One course a race type runs on.
+
+    ``min_km``/``max_km`` bracket the distances RaceClocker has advertised for
+    this route, so an event is matched to its route by what it claims, not by
+    date - the club alternates between routes within the same season.
+    """
+
+    name: str
+    distance_km: float
+    min_km: float
+    max_km: float
+
+    def matches(self, listed_km: float | None) -> bool:
+        return listed_km is not None and self.min_km <= listed_km <= self.max_km
+
+
+@dataclass
 class Course:
     """The fixed course for a race series.
 
@@ -51,6 +72,14 @@ class Course:
 
     name: str
     legs: list[Leg] = field(default_factory=list)
+    routes: list[Route] = field(default_factory=list)
+
+    def route_for(self, listed_km: float | None) -> Route | None:
+        """The route whose advertised range covers this event."""
+        for route in self.routes:
+            if route.matches(listed_km):
+                return route
+        return None
 
     @property
     def distance_km(self) -> float:
@@ -62,7 +91,14 @@ class Course:
 
 
 DEFAULT_COURSES: dict[str, Course] = {
-    TIME_TRIAL: Course(name="Time trial", legs=[Leg("Bike", 13.0)]),
+    TIME_TRIAL: Course(
+        name="Time trial",
+        legs=[Leg("Bike", 13.0)],
+        routes=[
+            Route("Short (13 km)", 13.0, 12.75, 13.25),
+            Route("Long (13.8 km)", 13.8, 13.4, 14.25),
+        ],
+    ),
     AQUATHON: Course(name="Aquathon", legs=[Leg("Swim", 0.6), Leg("Run", 3.5)]),
 }
 
@@ -74,7 +110,11 @@ def load_courses(path: Path | None = None) -> dict[str, Course]:
         # Deep copy: sharing Leg objects would let one caller's edit mutate the
         # module-level defaults for every later load.
         return {
-            key: Course(course.name, [Leg(leg.name, leg.distance_km) for leg in course.legs])
+            key: Course(
+                course.name,
+                [Leg(leg.name, leg.distance_km) for leg in course.legs],
+                [Route(r.name, r.distance_km, r.min_km, r.max_km) for r in course.routes],
+            )
             for key, course in DEFAULT_COURSES.items()
         }
 
@@ -84,6 +124,15 @@ def load_courses(path: Path | None = None) -> dict[str, Course]:
         courses[race_type] = Course(
             name=spec.get("name", race_type),
             legs=[Leg(leg["name"], float(leg["distance_km"])) for leg in spec.get("legs", [])],
+            routes=[
+                Route(
+                    r["name"],
+                    float(r["distance_km"]),
+                    float(r["min_km"]),
+                    float(r["max_km"]),
+                )
+                for r in spec.get("routes", [])
+            ],
         )
     return courses
 
@@ -118,3 +167,26 @@ def leg_distances_km(race_type: str, courses: dict[str, Course] | None = None) -
     """Configured distance of each timed leg, in order."""
     course = course_for(race_type, courses)
     return [leg.distance_km for leg in course.legs] if course else []
+
+
+def route_for_event(
+    race_type: str, listed_km: float | None, courses: dict[str, Course] | None = None
+) -> Route | None:
+    """Which configured route an event ran on, from the distance it advertises."""
+    course = course_for(race_type, courses)
+    return course.route_for(listed_km) if course else None
+
+
+def event_distance_km(
+    race_type: str, listed_km: float | None = None, courses: dict[str, Course] | None = None
+) -> float | None:
+    """The distance to use for one event's pace and speed.
+
+    The matched route's canonical distance where the type runs on more than one
+    course, otherwise the race type's single configured distance. Never the raw
+    figure off the page.
+    """
+    route = route_for_event(race_type, listed_km, courses)
+    if route:
+        return route.distance_km
+    return distance_km(race_type, courses)

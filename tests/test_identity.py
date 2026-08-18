@@ -169,7 +169,12 @@ def test_same_spelling_claimed_by_two_athletes_is_ambiguous():
 
 
 def test_duplicate_name_within_one_event_is_contested():
-    """Two "Kevin"s in one race proves they are different people."""
+    """A name appearing twice in one race cannot be auto-grouped.
+
+    It may be two people sharing a name, or one person entered twice - the
+    club's history has both. Either way it is not safe to guess, so the rows
+    are flagged for a claim rather than merged.
+    """
     event = make_event("evt_dup", [("Kevin", 1200.0), ("Kevin", 1400.0)])
     assert idn.contested_names([event]) == {"kevin"}
 
@@ -213,3 +218,71 @@ def test_every_row_is_resolved_to_something(real_events):
 )
 def test_format_time(seconds, expected):
     assert idn.format_time(seconds) == expected
+
+
+# ---- placeholders and verification --------------------------------------
+
+
+@pytest.mark.parametrize(
+    "name", ["Unknown", "unknown", "Name", "test", "3", "25", "", "  ", "N/A", "TBC"]
+)
+def test_placeholder_names_are_recognised(name):
+    assert idn.is_placeholder(name)
+
+
+@pytest.mark.parametrize(
+    "name", ["Kevin G", "Lorraine M.", "James Carron", "Dee", "Tome", "Anon Smith"]
+)
+def test_real_names_are_not_placeholders(name):
+    assert not idn.is_placeholder(name)
+
+
+def test_placeholders_never_become_athletes():
+    """91 rows across the club's history are "unknown", "name" or a bib number.
+
+    They still raced, so they keep counting towards field size - but a trend
+    line combining 62 different people under "Unknown" would be nonsense.
+    """
+    event = make_event("evt_ph", [("Unknown", 1200.0), ("Name", 1300.0), ("Maura", 1400.0)])
+    resolutions = idn.resolve([event], idn.Registry())
+
+    placeholders = [r for r in resolutions.values() if r.source == idn.PLACEHOLDER]
+    assert len(placeholders) == 2
+    assert all(not r.is_athlete for r in placeholders)
+    assert all(r.athlete_id is None for r in placeholders)
+
+    real = [r for r in resolutions.values() if r.is_athlete]
+    assert [r.display_name for r in real] == ["Maura"]
+
+
+def test_placeholders_do_not_count_as_contested():
+    """Two "Unknown" entries in one race are not two people sharing a name."""
+    event = make_event("evt_ph2", [("Unknown", 1200.0), ("Unknown", 1300.0)])
+    resolutions = idn.resolve([event], idn.Registry())
+    assert all(r.source == idn.PLACEHOLDER for r in resolutions.values())
+
+
+def test_claimed_rows_are_verified(real_events):
+    registry = idn.Registry()
+    registry.claim("John Doyle", registry.search("John", real_events))
+    resolutions = idn.resolve(real_events, registry)
+
+    johns = [r for r in resolutions.values() if r.display_name == "John Doyle"]
+    assert johns and all(r.verified for r in johns)
+
+
+def test_provisional_groups_are_not_verified(real_events):
+    """Bare first names are shown but marked unverified.
+
+    Five of the club's most active entries are bare first names - Maura (28),
+    John (22), Tim (21), Kevin (21), Dee (20). Over seven years such a group
+    may well be more than one person.
+    """
+    resolutions = idn.resolve(real_events, idn.Registry())
+    kathleen = [r for r in resolutions.values() if r.display_name == "Kathleen"]
+    assert kathleen
+    assert all(r.source == idn.PROVISIONAL and not r.verified for r in kathleen)
+
+
+def test_trend_threshold_is_defined():
+    assert idn.MIN_RACES_FOR_TREND == 3

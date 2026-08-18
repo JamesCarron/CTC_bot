@@ -187,7 +187,8 @@ Every result row across every event resolves to exactly one of:
 | `claimed` | The athlete ticked this exact row. Always wins. |
 | `inferred` | The spelling was learned from exactly one athlete's claims — later events resolve with no new input. This is the "remembers going forward" behaviour. |
 | `ambiguous` | The spelling belongs to two or more claimed athletes. Never guessed; surfaced for a claim. |
-| `contested` | The same name appears twice **within a single event**, which is direct proof two people share it. Never auto-grouped. |
+| `contested` | The same name appears twice **within a single event** — two people sharing it, or one person entered twice. The club's history has both, so neither is assumed. |
+| `placeholder` | Not a person at all: `unknown` (62 rows), `name` (17), bare bib numbers, `test`. Never becomes an athlete, but still counts towards field size so z-scores reflect who actually raced. |
 | `provisional` | Unclaimed, but the spelling is unique, so grouped by exact name. Unclaimed athletes still get a trend line. |
 
 Nobody is ever silently dropped — a test asserts every row resolves to something.
@@ -210,11 +211,24 @@ invalidate history:
 - **Personal best** markers.
 
 Distances come from `data/courses.json` (admin-editable), **not** from the page.
-Two reasons, both found in the real history: RaceClocker reports the aquathon as
-`8.0 km` against a real 4.1 km course (~2x error), and the time trial's listed
-distance drifts across 13.0–14.0 km between events. The configured distance is
-used for **every** event of that type, so a 25-minute ride always scores the same
-speed regardless of which device measured that night's course.
+
+- The aquathon page reports `8.0 km` against a real 4.1 km course (~2x error).
+- **The time trial runs on two routes.** Listed distances form two clean
+  clusters — 13.0–13.1 km (60 events) and 13.5–14.0 km (44 events) — and the two
+  overlap in 2022–2025, so the club alternates between courses rather than
+  having remeasured one. An event is matched to its route by the distance it
+  advertises; within a route the wobble (13.0 vs 13.1) is flattened, but the 6%
+  gap between routes is preserved. Trends can then mark a course switch instead
+  of reading it as a change in form.
+
+**Who gets a trend line:** everyone appears and is searchable, but a fitted line
+needs `MIN_RACES_FOR_TREND` (3) races. Of 866 athlete groups, 251 clear that bar.
+
+**Unverified identities:** a provisional group is only "everyone who typed this
+exact name". Five of the club's most active entries are bare first names — Maura
+(28 races), John (22), Tim (21), Kevin (21), Dee (20) — any of which may be more
+than one person over seven years. These are shown, but marked unverified rather
+than presented as fact.
 
 Trends are drawn **within a series**, never pooled. `DNF`/`DNS` are excluded
 from trends and shown as gaps, never coerced to zero.
@@ -274,7 +288,7 @@ anything new, re-resolves identity and rebuilds the dashboard.
   percentile are withheld, because a z-score from a 2-person field is noise
   presented as signal. Seven races are affected.
 
-## 11. Open questions
+## 11. Remaining questions
 
 1. ~~The TT course is not quite fixed.~~ **Decided: the time trial is 13 km.**
    Listed distances across the 105 time trials drift between 13.0 and 14.0 km

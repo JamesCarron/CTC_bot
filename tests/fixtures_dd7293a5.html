@@ -1,0 +1,2563 @@
+<!doctype html>
+<html lang="en_US.UTF-8">
+
+<head>
+    <title>Aquathon 18th June results</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width"/>
+
+    <meta name="keywords" content="race timing, sports timing, rowing, running, cycling, time trial, trail running, mountainbiking, timer, stopwatch, enduro, regatta, parkrun">
+    <meta name="description" content="RaceClocker is a do-it-yourself tool for manual timing of sports races. Our app offers an easy and fast alternative to chip timing or stopwatches."/>
+    <meta property="og:title" content="Aquathon 18th June"/>
+    <meta property="og:url" content="https://raceclocker.com/dd7293a5"/>
+    <meta property="og:image" content="https://raceclocker.com/img/img_tile_RaceResults.png"/>
+    <link href="css/RC_Style.css?version=4.8" rel="stylesheet" type="text/css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+</head>
+
+<body style='padding-top: 0;'>
+<div class="ContentDarkResp">
+    <div id="EventHead" class="EventHead"><div class="EventHeadMap"><a href="https://www.google.com/maps/search/?api=1&query=51.69596,-8.51283" target="_blank"><img class="EventHeadThumbnail" src=https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/-8.51283,51.69596,14/96x96@2x?access_token=pk.eyJ1IjoiY2Vlc2llIiwiYSI6ImNsYzA5NWQ5djAyN3QzcnBidmh6OXFjOTUifQ.I3pWdhrDnugZJ6irskAWPA&logo=false&attribution=false></a><div id="weather_widget" class="WeatherWidget" style="display: none;"><img id="weather_condition" src="img/img_icon_weather_clear.svg" style="width:24px; height:24px; display:block;" alt="Weather condition"><div style="display: flex; gap: 2px; align-items: baseline"><span id="weather_temperature"></span><span id="weather_tempunit" class="Type_grey_8"></span></div><img id="weather_winddirection" src="img/img_icon_windarrow.svg" style="width:10px; height:26px; transform-origin: center center; display:block;" alt="Wind direction arrow"><div style="display: flex; gap: 2px; align-items: baseline"><span id="weather_windspeed"></span><span id="weather_windunit" class="Type_grey_8"></span></div></div><div class="DropDownMenu" id="weather_widget_menu" style="display: none;"></div></div><div class="EventDetailsColumn"><div class="EventDetailsRow RowWidthWithThumbnail"><span id="pagetitle" class="Title_large_white NoWrap">Aquathon 18th June</span></div><div class="EventDetailsRow RowWidthWithThumbnail"><img id="sporticon" width="32px" style="position:relative; top:-2px" src="img/icon_sports_other.svg"><span class="Type_white_10 NoWrap">8 km Other</span><span class="Type_white_10_transparent NoWrap">Mass start (1 split)</span></div><div class="EventDetailsRow RowWidthWithThumbnail"><span class="Type_white_10 NoWrap">Thursday 18 Jun '26, 19:00</span><span><a href=https://Corktri.com>website</a></span></div></div></div><div class="VerticalSpacerHalf"></div></div>
+
+<div class="ContentResp">
+    <div class="ToolBar">
+
+        <div class="ToolBarGreyButton ToClipboard" id="btn_link_public" title="Copy a public link for sharing results" data-clipboard-text="raceclocker.com/dd7293a5"><img class="ButtonIcon" src="img/img_icon_share.svg" width="24" height="24">Share</div><div class="ToolBarGreyButton" id="btn_menu_view" title="Results details to show or hide"><img class="ButtonIcon" src="img/img_icon_dropdown.svg" width="24" height="24">View<div id="menu_view_switches" class="DropDownMenu" style="display: none"><div class="MenuIconHover MenuItemLabelOn" id="btn_onoff_details" title="Show or hide results details"><img id="img_onoff_details" class="ButtonIcon" src="img/img_icon_checked.svg" width="24" height="24">Details</div><div class="MenuIconHover MenuItemLabelOff" id="btn_onoff_autoscroll" title="Slow scrolling results for live audience"><img id="img_onoff_autoscroll" class="ButtonIcon" src="img/img_icon_unchecked.svg" width="24" height="24">Auto scroll</div><div class="MenuIconHover" id="btn_recent_finishers" title="Show list of most recent finishers"><img class="ButtonIcon" src="img/img_icon_FINISH.svg" width="24" height="24">Finishers Live</div><div class="DottedLine"></div><div class="Type_blue_10 VerticalSpacerQuarter">Splits</div><div class="MenuIconHover" id="btn_toggle_intervals" title="Show intervals - elapsed time between split point and previous split point"><img class="ButtonIcon" src="img/img_icon_checked.svg" width="24" height="24">View intervals</div><div class="MenuIconHover" id="btn_toggle_splits" title="Show splits - elapsed time between split point and start"><img class="ButtonIcon" src="img/img_icon_unchecked.svg" width="24" height="24">View splits</div><div class="DottedLine"></div></div></div>
+        <div style="position: relative">
+            <input class="Field FieldIconSearch" type="text" value="" name="fld_filter" id="fld_filter" placeholder="Find..." style="width: 150px;">
+            <img id="fld_filter_clear" class="FieldIconSearchClear" src="img/img_icon_cancel.svg" width="24" height="24">
+        </div>
+
+    </div>
+</div>
+
+<div class="ContentResp" id="content_main">
+    <div class="HorizontalScrollWrapper">
+        <div class="FlRow FlRowHeader"><div class="FlColumn FlColRank"><img id="img_exp_col_all" class="ListIcon ExpandCollapseIcon" title="Expand or collapse all groups" src="img/img_icon_collapse.svg" width="24" height="24"></div><div class="FlColumn FlColOneAndHalf Name Type_darkblue_10_bold">Name</div><div id="sortSplit_1" class="FlColumn FlColOne Type_darkblue_10_bold RightAlignText" title="Rank results by this column"><img class="ListIcon" src="img/img_icon_dropdown.svg" width="24" height="24"><span data-fulltext="Swim finish">Swim finish</span></div><div id="sortSplit_5" class="FlColumn FlColOne Type_darkblue_10_bold RightAlignText" title="Rank results by this column"><img class="ListIcon" src="img/img_icon_dropdown.svg" width="24" height="24"><span>Finish</span></div><div id="sortResult" class="FlColumn FlColOne Type_darkblue_10_bold RightAlignText" title="Rank by result"><img class="ListIcon" src="img/img_icon_dropdown.svg" width="24" height="24">Result </div><div class="FlColumn FlColOne Type_darkblue_10_bold RightAlignText">Speed</div></div><div class="DottedLineDark"></div><div id='racelist'><div class="FlRow FlRowResults" id="row_1764389"><div class='FlColumn FlColRank' style='display:flex; align-items:baseline; gap:4px;'><img class='ProgressionCheckbox' data-raceid='1764389' src='img/img_icon_box_unchecked.svg' width='24' height='24' style='display:none; cursor:pointer; align-self:center;'><div id='1764389_RankBadge' class='RankingBadge'><span>1</span><span class='RankingBadgeSup'>st</span></div></div><div class="FlColumn FlColOneAndHalf Name"><div class="LineNameBib NoWrap"><span class="Name Type_black_10">Brendan</span><span class="Type_black_8 BibBorder">1</span></div></div><div class='FlColumn FlColOne ColumnSplit_1'><div class='StackedTimes'><div id='1764389_Col1' class='Type_black_10'>19:30:00.7</div><div id='1764389_Col1diff' class='Type_blue_8 ResultDetailsShowHide'>diff</div></div><div class='Rank'>(1)</div></div><div class='FlColumn FlColOne ColumnSplit_5'><div class='StackedTimes'><div id='1764389_Col5' class='Type_black_10'>19:43:20.7</div><div id='1764389_Col5diff' class='Type_blue_8 ResultDetailsShowHide'>diff</div></div><div class='Rank'>(5)</div></div><div class='FlColumn FlColOne ColumnResult ToolTip'><div class='StackedTimes'><div id='1764389_Result' class='Type_black_10_bold Result'>-</div><div id='1764389_Resultdiff' class='Type_blue_8 ResultDetailsShowHide'>-</div></div><div class='Rank'></div></div><div class='FlColumn FlColOne RightAlignText'><span id='1764389_Speed'>-</span><span class='Type_grey_8' style='margin-left: 4px;'>km/h</span></div></div><div class="FlRow FlRowResults" id="row_1764390"><div class='FlColumn FlColRank' style='display:flex; align-items:baseline; gap:4px;'><img class='ProgressionCheckbox' data-raceid='1764390' src='img/img_icon_box_unchecked.svg' width='24' height='24' style='display:none; cursor:pointer; align-self:center;'><div id='1764390_RankBadge' class='RankingBadge'><span>1</span><span class='RankingBadgeSup'>st</span></div></div><div class="FlColumn FlColOneAndHalf Name"><div class="LineNameBib NoWrap"><span class="Name Type_black_10">Keelin</span><span class="Type_black_8 BibBorder">2</span></div></div><div class='FlColumn FlColOne ColumnSplit_1'><div class='StackedTimes'><div id='1764390_Col1' class='Type_black_10'>19:29:39.8</div><div id='1764390_Col1diff' class='Type_blue_8 ResultDetailsShowHide'>diff</div></div><div class='Rank'>(1)</div></div><div class='FlColumn FlColOne ColumnSplit_5'><div class='StackedTimes'><div id='1764390_Col5' class='Type_black_10'>19:45:29.0</div><div id='1764390_Col5diff' class='Type_blue_8 ResultDetailsShowHide'>diff</div></div><div class='Rank'>(5)</div></div><div class='FlColumn FlColOne ColumnResult ToolTip'><div class='StackedTimes'><div id='1764390_Result' class='Type_black_10_bold Result'>-</div><div id='1764390_Resultdiff' class='Type_blue_8 ResultDetailsShowHide'>-</div></div><div class='Rank'></div></div><div class='FlColumn FlColOne RightAlignText'><span id='1764390_Speed'>-</span><span class='Type_grey_8' style='margin-left: 4px;'>km/h</span></div></div><div class="FlRow FlRowResults" id="row_1764391"><div class='FlColumn FlColRank' style='display:flex; align-items:baseline; gap:4px;'><img class='ProgressionCheckbox' data-raceid='1764391' src='img/img_icon_box_unchecked.svg' width='24' height='24' style='display:none; cursor:pointer; align-self:center;'><div id='1764391_RankBadge' class='RankingBadge'><span>1</span><span class='RankingBadgeSup'>st</span></div></div><div class="FlColumn FlColOneAndHalf Name"><div class="LineNameBib NoWrap"><span class="Name Type_black_10">Alvaro</span><span class="Type_black_8 BibBorder">3</span></div></div><div class='FlColumn FlColOne ColumnSplit_1'><div class='StackedTimes'><div id='1764391_Col1' class='Type_black_10'>19:29:48.5</div><div id='1764391_Col1diff' class='Type_blue_8 ResultDetailsShowHide'>diff</div></div><div class='Rank'>(1)</div></div><div class='FlColumn FlColOne ColumnSplit_5'><div class='StackedTimes'><div id='1764391_Col5' class='Type_black_10'>19:45:08.8</div><div id='1764391_Col5diff' class='Type_blue_8 ResultDetailsShowHide'>diff</div></div><div class='Rank'>(5)</div></div><div class='FlColumn FlColOne ColumnResult ToolTip'><div class='StackedTimes'><div id='1764391_Result' class='Type_black_10_bold Result'>-</div><div id='1764391_Resultdiff' class='Type_blue_8 ResultDetailsShowHide'>-</div></div><div class='Rank'></div></div><div class='FlColumn FlColOne RightAlignText'><span id='1764391_Speed'>-</span><span class='Type_grey_8' style='margin-left: 4px;'>km/h</span></div></div><div class="FlRow FlRowResults" id="row_1764393"><div class='FlColumn FlColRank' style='display:flex; align-items:baseline; gap:4px;'><img class='ProgressionCheckbox' data-raceid='1764393' src='img/img_icon_box_unchecked.svg' width='24' height='24' style='display:none; cursor:pointer; align-self:center;'><div id='1764393_RankBadge' class='RankingBadge'><span>1</span><span class='RankingBadgeSup'>st</span></div></div><div class="FlColumn FlColOneAndHalf Name"><div class="LineNameBib NoWrap"><span class="Name Type_black_10">Kathleen</span><span class="Type_black_8 BibBorder">4</span></div></div><div class='FlColumn FlColOne ColumnSplit_1'><div class='StackedTimes'><div id='1764393_Col1' class='Type_black_10'>19:29:29.4</div><div id='1764393_Col1diff' class='Type_blue_8 ResultDetailsShowHide'>diff</div></div><div class='Rank'>(1)</div></div><div class='FlColumn FlColOne ColumnSplit_5'><div class='StackedTimes'><div id='1764393_Col5' class='Type_black_10'>19:45:18.4</div><div id='1764393_Col5diff' class='Type_blue_8 ResultDetailsShowHide'>diff</div></div><div class='Rank'>(5)</div></div><div class='FlColumn FlColOne ColumnResult ToolTip'><div class='StackedTimes'><div id='1764393_Result' class='Type_black_10_bold Result'>-</div><div id='1764393_Resultdiff' class='Type_blue_8 ResultDetailsShowHide'>-</div></div><div class='Rank'></div></div><div class='FlColumn FlColOne RightAlignText'><span id='1764393_Speed'>-</span><span class='Type_grey_8' style='margin-left: 4px;'>km/h</span></div></div><div class="FlRow FlRowResults" id="row_1764394"><div class='FlColumn FlColRank' style='display:flex; align-items:baseline; gap:4px;'><img class='ProgressionCheckbox' data-raceid='1764394' src='img/img_icon_box_unchecked.svg' width='24' height='24' style='display:none; cursor:pointer; align-self:center;'><div id='1764394_RankBadge' class='RankingBadge'><span>1</span><span class='RankingBadgeSup'>st</span></div></div><div class="FlColumn FlColOneAndHalf Name"><div class="LineNameBib NoWrap"><span class="Name Type_black_10">Sinead</span><span class="Type_black_8 BibBorder">5</span></div></div><div class='FlColumn FlColOne ColumnSplit_1'><div class='StackedTimes'><div id='1764394_Col1' class='Type_black_10'>19:25:32.1</div><div id='1764394_Col1diff' class='Type_blue_8 ResultDetailsShowHide'>diff</div></div><div class='Rank'>(1)</div></div><div class='FlColumn FlColOne ColumnSplit_5'><div class='StackedTimes'><div id='1764394_Col5' class='Type_black_10'>19:42:52.3</div><div id='1764394_Col5diff' class='Type_blue_8 ResultDetailsShowHide'>diff</div></div><div class='Rank'>(5)</div></div><div class='FlColumn FlColOne ColumnResult ToolTip'><div class='StackedTimes'><div id='1764394_Result' class='Type_black_10_bold Result'>-</div><div id='1764394_Resultdiff' class='Type_blue_8 ResultDetailsShowHide'>-</div></div><div class='Rank'></div></div><div class='FlColumn FlColOne RightAlignText'><span id='1764394_Speed'>-</span><span class='Type_grey_8' style='margin-left: 4px;'>km/h</span></div></div><div class="FlRow FlRowResults" id="row_1764395"><div class='FlColumn FlColRank' style='display:flex; align-items:baseline; gap:4px;'><img class='ProgressionCheckbox' data-raceid='1764395' src='img/img_icon_box_unchecked.svg' width='24' height='24' style='display:none; cursor:pointer; align-self:center;'><div id='1764395_RankBadge' class='RankingBadge'><span>1</span><span class='RankingBadgeSup'>st</span></div></div><div class="FlColumn FlColOneAndHalf Name"><div class="LineNameBib NoWrap"><span class="Name Type_black_10">Tome</span><span class="Type_black_8 BibBorder">6</span></div></div><div class='FlColumn FlColOne ColumnSplit_1'><div class='StackedTimes'><div id='1764395_Col1' class='Type_black_10'>19:29:20.6</div><div id='1764395_Col1diff' class='Type_blue_8 ResultDetailsShowHide'>diff</div></div><div class='Rank'>(1)</div></div><div class='FlColumn FlColOne ColumnSplit_5'><div class='StackedTimes'><div id='1764395_Col5' class='Type_black_10'>19:45:18.1</div><div id='1764395_Col5diff' class='Type_blue_8 ResultDetailsShowHide'>diff</div></div><div class='Rank'>(5)</div></div><div class='FlColumn FlColOne ColumnResult ToolTip'><div class='StackedTimes'><div id='1764395_Result' class='Type_black_10_bold Result'>-</div><div id='1764395_Resultdiff' class='Type_blue_8 ResultDetailsShowHide'>-</div></div><div class='Rank'></div></div><div class='FlColumn FlColOne RightAlignText'><span id='1764395_Speed'>-</span><span class='Type_grey_8' style='margin-left: 4px;'>km/h</span></div></div><div class="FlRow FlRowResults" id="row_1764409"><div class='FlColumn FlColRank' style='display:flex; align-items:baseline; gap:4px;'><img class='ProgressionCheckbox' data-raceid='1764409' src='img/img_icon_box_unchecked.svg' width='24' height='24' style='display:none; cursor:pointer; align-self:center;'><div id='1764409_RankBadge' class='RankingBadge'><span>1</span><span class='RankingBadgeSup'>st</span></div></div><div class="FlColumn FlColOneAndHalf Name"><div class="LineNameBib NoWrap"><span class="Name Type_black_10">Anthony</span><span class="Type_black_8 BibBorder">7</span></div></div><div class='FlColumn FlColOne ColumnSplit_1'><div class='StackedTimes'><div id='1764409_Col1' class='Type_black_10'>19:25:11.8</div><div id='1764409_Col1diff' class='Type_blue_8 ResultDetailsShowHide'>diff</div></div><div class='Rank'>(1)</div></div><div class='FlColumn FlColOne ColumnSplit_5'><div class='StackedTimes'><div id='1764409_Col5' class='Type_black_10'>19:39:26.5</div><div id='1764409_Col5diff' class='Type_blue_8 ResultDetailsShowHide'>diff</div></div><div class='Rank'>(5)</div></div><div class='FlColumn FlColOne ColumnResult ToolTip'><div class='StackedTimes'><div id='1764409_Result' class='Type_black_10_bold Result'>-</div><div id='1764409_Resultdiff' class='Type_blue_8 ResultDetailsShowHide'>-</div></div><div class='Rank'></div></div><div class='FlColumn FlColOne RightAlignText'><span id='1764409_Speed'>-</span><span class='Type_grey_8' style='margin-left: 4px;'>km/h</span></div></div><div class="FlRow FlRowResults" id="row_1764428"><div class='FlColumn FlColRank' style='display:flex; align-items:baseline; gap:4px;'><img class='ProgressionCheckbox' data-raceid='1764428' src='img/img_icon_box_unchecked.svg' width='24' height='24' style='display:none; cursor:pointer; align-self:center;'><div id='1764428_RankBadge' class='RankingBadge'><span>1</span><span class='RankingBadgeSup'>st</span></div></div><div class="FlColumn FlColOneAndHalf Name"><div class="LineNameBib NoWrap"><span class="Name Type_black_10">John</span><span class="Type_black_8 BibBorder">8</span></div></div><div class='FlColumn FlColOne ColumnSplit_1'><div class='StackedTimes'><div id='1764428_Col1' class='Type_black_10'>19:25:45.5</div><div id='1764428_Col1diff' class='Type_blue_8 ResultDetailsShowHide'>diff</div></div><div class='Rank'>(1)</div></div><div class='FlColumn FlColOne ColumnSplit_5'><div class='StackedTimes'><div id='1764428_Col5' class='Type_black_10'>19:41:08.9</div><div id='1764428_Col5diff' class='Type_blue_8 ResultDetailsShowHide'>diff</div></div><div class='Rank'>(5)</div></div><div class='FlColumn FlColOne ColumnResult ToolTip'><div class='StackedTimes'><div id='1764428_Result' class='Type_black_10_bold Result'>-</div><div id='1764428_Resultdiff' class='Type_blue_8 ResultDetailsShowHide'>-</div></div><div class='Rank'></div></div><div class='FlColumn FlColOne RightAlignText'><span id='1764428_Speed'>-</span><span class='Type_grey_8' style='margin-left: 4px;'>km/h</span></div></div><div class="FlRow FlRowResults" id="row_1764429"><div class='FlColumn FlColRank' style='display:flex; align-items:baseline; gap:4px;'><img class='ProgressionCheckbox' data-raceid='1764429' src='img/img_icon_box_unchecked.svg' width='24' height='24' style='display:none; cursor:pointer; align-self:center;'><div id='1764429_RankBadge' class='RankingBadge'><span>1</span><span class='RankingBadgeSup'>st</span></div></div><div class="FlColumn FlColOneAndHalf Name"><div class="LineNameBib NoWrap"><span class="Name Type_black_10">Conor</span><span class="Type_black_8 BibBorder">9</span></div></div><div class='FlColumn FlColOne ColumnSplit_1'><div class='StackedTimes'><div id='1764429_Col1' class='Type_black_10'>19:25:41.4</div><div id='1764429_Col1diff' class='Type_blue_8 ResultDetailsShowHide'>diff</div></div><div class='Rank'>(1)</div></div><div class='FlColumn FlColOne ColumnSplit_5'><div class='StackedTimes'><div id='1764429_Col5' class='Type_black_10'>19:41:30.4</div><div id='1764429_Col5diff' class='Type_blue_8 ResultDetailsShowHide'>diff</div></div><div class='Rank'>(5)</div></div><div class='FlColumn FlColOne ColumnResult ToolTip'><div class='StackedTimes'><div id='1764429_Result' class='Type_black_10_bold Result'>-</div><div id='1764429_Resultdiff' class='Type_blue_8 ResultDetailsShowHide'>-</div></div><div class='Rank'></div></div><div class='FlColumn FlColOne RightAlignText'><span id='1764429_Speed'>-</span><span class='Type_grey_8' style='margin-left: 4px;'>km/h</span></div></div></div><div id='headerlist' style='display: none'></div><div class='VerticalSpacerHalf'></div><span class="Type_grey_8">Link to<a href="https://raceclocker.com/dd7293a5-startlist">start list</a>&nbsp;&nbsp;&nbsp;DNS = Did not Start,&nbsp;&nbsp;DNF = Did not Finish,&nbsp;&nbsp;DQ = Disqualified</span>
+        <div class="VerticalSpacer"></div><div id="btn_home" class="Centered"><img src="img/logos/logo_RaceClocker_hor_pos.svg" width="240"></div><div class="VerticalSpacer"></div>
+    </div>
+</div>
+
+<div class="MessageFloat Blue" id="feedback" style="display:none; padding-right:48px; flex-direction:column; gap:4px;"></div>
+
+
+<dialog class="ModalDialog Centered" id="dialog_share">
+    <p id="clipboard_message" class="Type_black_10"></p>
+    <p class="Type_grey_10">or share the QR code</p>
+    <div id="qrcode"><img src="img/img_icon_empty.svg"></div>
+    <div class="VerticalSpacer"></div>
+    <div class="ToolBarGreyButton" id="btn_close_dialog_share"><img class="ButtonIcon" src="img/img_icon_cancel.svg">Close</div>
+</dialog>
+
+<dialog class="ModalDialog Centered" id="dialog_extra_info">
+    <div id="extra_info"></div>
+    <div class="VerticalSpacer"></div>
+    <div class="ToolBarGreyButton" id="btn_close_dialog_extra_info"><img class="ButtonIcon" src="img/img_icon_cancel.svg">Close</div>
+</dialog>
+
+<dialog class="ModalDialog Centered" id="dialog_laps">
+    <div class="DialogWrapper">
+        <div id="lap_header" class="DialogResultColumn"></div>
+        <div id="lap_results" class="DialogContent"></div>
+        <div class="ToolBarGreyButton" id="btn_close_dialog_laps"><img class="ButtonIcon" src="img/img_icon_cancel.svg">Close</div>
+    </div>
+</dialog>
+
+<dialog class="ModalDialog Centered Result" id="dialog_result">
+    <div class="DialogWrapper">
+        <div class="DialogResultColumn">
+            <div class="DialogResultRow">
+                <div id="race_icon"></div>
+                <div id="race_title" class="RaceTitle"></div>
+            </div>
+            <div id="race_result" class="RaceResult"></div>
+            <div class="DialogResultRow">
+                <div id="race_badge" class="RaceBadge">
+                    <span id="race_badgenr" class="RaceBadgeNr"></span>
+                    <span id="race_badgetext" class="RaceBadgeText"></span></div>
+                <div id="race_name" class="RaceName"></div>
+            </div>
+            <div id="race_club_cat" class="RaceClubCat"></div>
+        </div>
+        <div class="ToolBarGreyButton" id="btn_close_dialog_results"><img class="ButtonIcon" src="img/img_icon_cancel.svg">Close</div>
+    </div>
+</dialog>
+
+<dialog class="ModalDialog Centered Result" id="dialog_recentfinishers">
+    <div class="DialogWrapper">
+        <div class="DialogResultColumn">
+            <div class="DialogResultRow">
+                <div><span class="RaceTitle Orange">Recent Finishers&nbsp;&middot;&nbsp;</span><span id="race_title_2" class="RaceTitle"></span></div>
+            </div>
+            <div class="VerticalSpacer"></div>
+            <div id="recentfinishers" class="DialogContent"></div>
+        </div>
+        <div class="ToolBarGreyButton" id="btn_close_dialog_recentfinishers"><img class="ButtonIcon" src="img/img_icon_cancel.svg">Close</div>
+    </div>
+</dialog>
+
+
+<script type="text/javascript" src="js/clipboard.min.js"></script>
+<script type="text/javascript" src="js/goosabilla.js"></script>
+<script src="https://cdn.ably.io/lib/ably.min-1.js"></script>
+<script type="text/javascript" src="js/websockets.js?version=2.01"></script>
+<script type="text/javascript" src="js/MainNavTabs.js"></script>
+<script type="text/javascript">
+
+
+    let AllResults = [{"RaceID":"1764389","Rank":"1","Name":"Brendan","Bib":"1","Club":"","CategoryID":"238931","Cat":"All","CatRank":"1","WaveID":0,"WaveName":"None","WaveRank":1,"Age":"","GenderID":1,"Gender":"Male","Custom":"","Handicap":"1.000","ExtraInfo":"","TmSplit1":"19:13:44","TmSplit1dc":"3","TmSplit1Sec":"","TmSplit2":"19:30:00","TmSplit2dc":"7","TmSplit2Sec":"","TmSplit3":"00:00:00","TmSplit3dc":"0","TmSplit3Sec":"","TmSplit4":"00:00:00","TmSplit4dc":"0","TmSplit4Sec":"","TmSplit5":"19:43:20","TmSplit5dc":"7","TmSplit5Sec":"","TmSplit6":"00:00:00","TmSplit6dc":"0","TmSplit6Sec":"","Result":"00:29:36.4","TmResultSec":"1776.4","Penalty":"0","PenaltyNote":"","TmHandicapSec":"","Laps":[]},{"RaceID":"1764390","Rank":"2","Name":"Keelin","Bib":"2","Club":"","CategoryID":"238931","Cat":"All","CatRank":"1","WaveID":0,"WaveName":"None","WaveRank":1,"Age":"","GenderID":1,"Gender":"Male","Custom":"","Handicap":"1.000","ExtraInfo":"","TmSplit1":"19:13:44","TmSplit1dc":"3","TmSplit1Sec":"","TmSplit2":"19:29:39","TmSplit2dc":"8","TmSplit2Sec":"","TmSplit3":"00:00:00","TmSplit3dc":"0","TmSplit3Sec":"","TmSplit4":"00:00:00","TmSplit4dc":"0","TmSplit4Sec":"","TmSplit5":"19:45:29","TmSplit5dc":"0","TmSplit5Sec":"","TmSplit6":"00:00:00","TmSplit6dc":"0","TmSplit6Sec":"","Result":"00:31:44.7","TmResultSec":"1904.7","Penalty":"0","PenaltyNote":"","TmHandicapSec":"","Laps":[]},{"RaceID":"1764391","Rank":"3","Name":"Alvaro","Bib":"3","Club":"","CategoryID":"238931","Cat":"All","CatRank":"1","WaveID":0,"WaveName":"None","WaveRank":1,"Age":"","GenderID":1,"Gender":"Male","Custom":"","Handicap":"1.000","ExtraInfo":"","TmSplit1":"19:13:44","TmSplit1dc":"3","TmSplit1Sec":"","TmSplit2":"19:29:48","TmSplit2dc":"5","TmSplit2Sec":"","TmSplit3":"00:00:00","TmSplit3dc":"0","TmSplit3Sec":"","TmSplit4":"00:00:00","TmSplit4dc":"0","TmSplit4Sec":"","TmSplit5":"19:45:08","TmSplit5dc":"8","TmSplit5Sec":"","TmSplit6":"00:00:00","TmSplit6dc":"0","TmSplit6Sec":"","Result":"00:31:24.5","TmResultSec":"1884.5","Penalty":"0","PenaltyNote":"","TmHandicapSec":"","Laps":[]},{"RaceID":"1764393","Rank":"4","Name":"Kathleen","Bib":"4","Club":"","CategoryID":"238931","Cat":"All","CatRank":"1","WaveID":0,"WaveName":"None","WaveRank":1,"Age":"","GenderID":1,"Gender":"Male","Custom":"","Handicap":"1.000","ExtraInfo":"","TmSplit1":"19:13:44","TmSplit1dc":"3","TmSplit1Sec":"","TmSplit2":"19:29:29","TmSplit2dc":"4","TmSplit2Sec":"","TmSplit3":"00:00:00","TmSplit3dc":"0","TmSplit3Sec":"","TmSplit4":"00:00:00","TmSplit4dc":"0","TmSplit4Sec":"","TmSplit5":"19:45:18","TmSplit5dc":"4","TmSplit5Sec":"","TmSplit6":"00:00:00","TmSplit6dc":"0","TmSplit6Sec":"","Result":"00:31:34.1","TmResultSec":"1894.1","Penalty":"0","PenaltyNote":"","TmHandicapSec":"","Laps":[]},{"RaceID":"1764394","Rank":"5","Name":"Sinead","Bib":"5","Club":"","CategoryID":"238931","Cat":"All","CatRank":"1","WaveID":0,"WaveName":"None","WaveRank":1,"Age":"","GenderID":1,"Gender":"Male","Custom":"","Handicap":"1.000","ExtraInfo":"","TmSplit1":"19:13:44","TmSplit1dc":"3","TmSplit1Sec":"","TmSplit2":"19:25:32","TmSplit2dc":"1","TmSplit2Sec":"","TmSplit3":"00:00:00","TmSplit3dc":"0","TmSplit3Sec":"","TmSplit4":"00:00:00","TmSplit4dc":"0","TmSplit4Sec":"","TmSplit5":"19:42:52","TmSplit5dc":"3","TmSplit5Sec":"","TmSplit6":"00:00:00","TmSplit6dc":"0","TmSplit6Sec":"","Result":"00:29:08.0","TmResultSec":"1748.0","Penalty":"0","PenaltyNote":"","TmHandicapSec":"","Laps":[]},{"RaceID":"1764395","Rank":"6","Name":"Tome","Bib":"6","Club":"","CategoryID":"238931","Cat":"All","CatRank":"1","WaveID":0,"WaveName":"None","WaveRank":1,"Age":"","GenderID":1,"Gender":"Male","Custom":"","Handicap":"1.000","ExtraInfo":"","TmSplit1":"19:13:44","TmSplit1dc":"3","TmSplit1Sec":"","TmSplit2":"19:29:20","TmSplit2dc":"6","TmSplit2Sec":"","TmSplit3":"00:00:00","TmSplit3dc":"0","TmSplit3Sec":"","TmSplit4":"00:00:00","TmSplit4dc":"0","TmSplit4Sec":"","TmSplit5":"19:45:18","TmSplit5dc":"1","TmSplit5Sec":"","TmSplit6":"00:00:00","TmSplit6dc":"0","TmSplit6Sec":"","Result":"00:31:33.8","TmResultSec":"1893.8","Penalty":"0","PenaltyNote":"","TmHandicapSec":"","Laps":[]},{"RaceID":"1764409","Rank":"7","Name":"Anthony","Bib":"7","Club":"","CategoryID":"238931","Cat":"All","CatRank":"1","WaveID":0,"WaveName":"None","WaveRank":1,"Age":"","GenderID":1,"Gender":"Male","Custom":"","Handicap":"1.000","ExtraInfo":"","TmSplit1":"19:13:44","TmSplit1dc":"3","TmSplit1Sec":"","TmSplit2":"19:25:11","TmSplit2dc":"8","TmSplit2Sec":"","TmSplit3":"00:00:00","TmSplit3dc":"0","TmSplit3Sec":"","TmSplit4":"00:00:00","TmSplit4dc":"0","TmSplit4Sec":"","TmSplit5":"19:39:26","TmSplit5dc":"5","TmSplit5Sec":"","TmSplit6":"00:00:00","TmSplit6dc":"0","TmSplit6Sec":"","Result":"00:25:42.2","TmResultSec":"1542.2","Penalty":"0","PenaltyNote":"","TmHandicapSec":"","Laps":[]},{"RaceID":"1764428","Rank":"8","Name":"John","Bib":"8","Club":"","CategoryID":"238931","Cat":"All","CatRank":"1","WaveID":0,"WaveName":"None","WaveRank":1,"Age":"","GenderID":1,"Gender":"Male","Custom":"","Handicap":"1.000","ExtraInfo":"","TmSplit1":"19:13:44","TmSplit1dc":"3","TmSplit1Sec":"","TmSplit2":"19:25:45","TmSplit2dc":"5","TmSplit2Sec":"","TmSplit3":"00:00:00","TmSplit3dc":"0","TmSplit3Sec":"","TmSplit4":"00:00:00","TmSplit4dc":"0","TmSplit4Sec":"","TmSplit5":"19:41:08","TmSplit5dc":"9","TmSplit5Sec":"","TmSplit6":"00:00:00","TmSplit6dc":"0","TmSplit6Sec":"","Result":"00:27:24.6","TmResultSec":"1644.6","Penalty":"0","PenaltyNote":"","TmHandicapSec":"","Laps":[]},{"RaceID":"1764429","Rank":"9","Name":"Conor","Bib":"9","Club":"","CategoryID":"238931","Cat":"All","CatRank":"1","WaveID":0,"WaveName":"None","WaveRank":1,"Age":"","GenderID":1,"Gender":"Male","Custom":"","Handicap":"1.000","ExtraInfo":"","TmSplit1":"19:13:44","TmSplit1dc":"3","TmSplit1Sec":"","TmSplit2":"19:25:41","TmSplit2dc":"4","TmSplit2Sec":"","TmSplit3":"00:00:00","TmSplit3dc":"0","TmSplit3Sec":"","TmSplit4":"00:00:00","TmSplit4dc":"0","TmSplit4Sec":"","TmSplit5":"19:41:30","TmSplit5dc":"4","TmSplit5Sec":"","TmSplit6":"00:00:00","TmSplit6dc":"0","TmSplit6Sec":"","Result":"00:27:46.1","TmResultSec":"1666.1","Penalty":"0","PenaltyNote":"","TmHandicapSec":"","Laps":[]}];
+    let AllCategories = [{"CategoryID":"238931","Cat":"All","CatRank":"1"}];
+    let AllWaves = [{"WaveID":0,"WaveName":"None","WaveRank":1}];
+    let AllWavesInEvent = [];
+    let AllGenders = [{"GenderID":1,"Gender":"Male","GenderRank":1}];
+    let SportType = "0";
+    let Distance =  "8";
+    let DistanceUnit =  "km";
+    let WaveDistanceOverrides = [];
+    let CategoryDistanceOverrides = [];
+    let HasMapThumbnail =  true;
+    let WeatherData =  [{"date":"2026-06-18 00:00:00.000000","timezone_type":3,"timezone":"UTC"},{"date":"2026-08-18 19:00:00.000000","timezone_type":3,"timezone":"UTC"},"-8.51283","51.69596"];
+    let ShowCat = 0;
+    let ShowBib = 1;
+    let ShowClub = 0;
+    let ShowHandicap = 0;
+    let ShowCustom = 0;
+    let CustomLabel = "Custom";
+    let ShowAge = 0;
+    let ShowGender = 0;
+    let gHasPenalties = 0;
+    let SplitsCount = 1;
+    let SplitNames = ["Start","Swim finish","Cycling start","Cycling finish","Run start","Finish"];
+    let gLapRace = 0;
+    let gHasCustomLaps = 0;
+    let gLapCount = 0;
+    let AllCustomLapNamesAndDistances = [];
+    let AllLapStatsBars = [] // tracks lap stat values
+    let gViewDetails = 1;
+    let gSplitsOrInterval = 0;
+    let gGroupByWCGF = 4;
+    let gRankBy = 0;
+    let HasExtraInfo = 0;
+    let EventIDKey = "dd7293a5";
+    let gEventID = 55590; // for updates and websocket use
+    let clipboard = new Clipboard('.ToClipboard'); // copy results link to clipboard
+    let partnerinfo = [];
+    let dialog_share = document.getElementById('dialog_share');
+    let dialog_extra_info = document.getElementById('dialog_extra_info');
+    let dialog_laps = document.getElementById('dialog_laps');
+    let dialog_result = document.getElementById('dialog_result');
+    let dialog_recentfinishers = document.getElementById('dialog_recentfinishers');
+    let export_results = [];
+    let export_timing = [];
+    const params = new URLSearchParams(window.location.search);
+    let gAutoScroll = 0;
+    if (params.get("scroll") == "1") { gAutoScroll = 1; }
+    let filterTimeout; // short time out in filter field
+    let gProgressionMode = 0; // tracks whether progression (copy-to-wave) selection is active
+
+    var page ="Event_Result"
+    var gOverlayWindow = null;
+    ConnectWebsocket();
+
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+            console.log("document.hidden")
+            //DisConnectWebsocket();
+        } else {
+            ReconnectWebsocket();
+            console.log("document.hidden=false")
+        }
+    });
+
+    $(document).ready(function () {
+
+        dialog_share.close();
+        dialog_extra_info.close();
+        dialog_laps.close();
+        dialog_result.close();
+        dialog_recentfinishers.close();
+
+        UpdateLapHeaderAndFields()
+
+        CalcAllRows()
+
+        // Hide the detail columns before measuring the list width, otherwise
+        // SetListViewWidth() sizes #racelist to include columns that are about
+        // to disappear, leaving the body columns misaligned with the header
+        if (gViewDetails == 0) {
+            $('.ResultDetailsShowHide').hide();
+        }
+
+        SetListViewWidth()
+
+        InitWeatherWidget(WeatherData);
+
+        $(window).on('resize', function(){
+            if ($("#dialog_laps").is(":visible")) {
+                ScaleStatBars()
+            } else {
+                SetListViewWidth()
+            }
+        });
+
+        $('#btn_menu_view').click(function(e){
+            e.stopPropagation();
+            HideMenus();
+            if ($("#menu_view_switches").is(":visible")) {
+                $("#menu_view_switches").fadeOut('fast');
+            } else {
+                $("#menu_view_switches").fadeIn('fast');
+            }
+        })
+
+        $(document).on('click', '*', function(e) {
+            e.stopPropagation();
+            HideMenus();
+        })
+
+        $('.ListGroupName')
+            .on('mouseenter click', function(e) {
+                $(this).parent().css({'cursor' : 'pointer', 'background-color' : 'var(--grey-dark)'})
+                $(this).prev().find('img').trigger(e.type);
+        })
+            .on('mouseleave', function(e) {
+                $(this).parent().css({'cursor' : 'default', 'background-color' : 'var(--grey-lessdark)'})
+                $(this).prev().find('img').trigger(e.type);
+            })
+
+        $(".ExpandCollapseIcon")
+            .on('mouseenter', function(){
+                img_name = $(this).attr('src');
+                img_name = img_name.replace('.svg', '_hot.svg');
+                $(this).attr('src', img_name);
+        })
+            .on('mouseleave', function(){
+                img_name = $(this).attr('src');
+                img_name = img_name.replace('_hot.svg', '.svg');
+                $(this).attr('src', img_name);
+        })
+            .on('click', function(){
+                img_name = $(this).attr('src');
+                if ($(this).attr('id') == "img_exp_col_all") {
+                    // show/hide all groups
+                    if(img_name.includes("collapse")) {
+                        $(this).attr('src', 'img/img_icon_expand.svg');
+                        $('.ExpandCollapseIcon').not('#img_exp_col_all').attr('src', 'img/img_icon_bar_expand.svg'); // flip all icons
+                        $('#racelist .FlRow').not('.ListHeader').hide() // hide all - .slideUp(150)
+                    } else {
+                        $(this).attr('src', 'img/img_icon_collapse.svg');
+                        $('.ExpandCollapseIcon').not('#img_exp_col_all').attr('src', 'img/img_icon_bar_collapse.svg'); // flip all icons
+                        $('#racelist .FlRow').not('.ListHeader').show() // show all - .slideDown(150)
+                    }
+                } else {
+                    // show hide single group
+                    if(img_name.includes("collapse")) {  // group hidden or visible?
+                        $(this).attr('src', 'img/img_icon_bar_expand.svg');
+                        if ($(this).is($('.ExpandCollapseIcon:last'))) {
+                            $(this).closest('.FlRow').nextUntil('.Last').not('.Note').hide() // hide till end of list - removed .slideUp(150)
+                        } else {
+                            $(this).closest('.FlRow').nextUntil('.ListHeader').not('.Note').hide() // hide up till next header - removed .slideUp(150)
+                        }
+                    } else {
+                        $(this).attr('src', 'img/img_icon_bar_collapse.svg');
+                        $(this).closest('.FlRow').nextUntil('.ListHeader').show() // show - removed .slideDown(150)
+
+                    }
+                }
+        })
+
+        $('.WaveVideoBtn')
+            .on('mouseenter', function() {
+                $(this).find('img').attr('src', 'img/img_icon_bar_TV_hot.svg');
+            })
+            .on('mouseleave', function() {
+                if (!$(this).hasClass('WaveVideoActive')) {
+                    $(this).find('img').attr('src', 'img/img_icon_bar_TV.svg');
+                }
+            })
+            .on('click', function(e) {
+                e.stopPropagation();
+                $('.WaveVideoBtn').not(this).removeClass('WaveVideoActive').find('img').attr('src', 'img/img_icon_bar_TV.svg');
+                $(this).addClass('WaveVideoActive');
+                var waveID = $(this).data('wave-id');
+                var url = 'Event_Results_Overlay.php?WaveID=' + waveID;
+                if (gOverlayWindow && !gOverlayWindow.closed) {
+                    gOverlayWindow.location.href = url;
+                    gOverlayWindow.focus();
+                } else {
+                    gOverlayWindow = window.open(url, 'WaveVideoWindow');
+                }
+            });
+
+        $(".ShowStats")
+            .mouseenter(function() {
+                $(this).css({'cursor' : 'pointer'})
+                $(this).find('img').attr('src', 'img/img_icon_stats_hot.svg'); // hilight icon
+            })
+            .mouseleave(function() {
+                $(this).css({'cursor' : 'default'})
+                $(this).find('img').attr('src', 'img/img_icon_stats.svg'); // hilight icon
+            })
+            .on('click', function(){
+                myID = $(this).attr('id').split("_").pop();
+                ShowAllLapResults(myID);
+            })
+
+        // CTRL+F to focus search
+        $(document).on('keydown', function(e) {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+                e.preventDefault(); // Prevent the browser's default find-in-page
+                $('#fld_filter').focus().select(); // Focus filter
+            }
+        });
+
+        // On page load, cache the lowercase text in a data attribute to speed up filtering
+        $(".FlRowResults").each(function() {
+            const $row = $(this);
+            $row.data("rowText", $row.find("div").text().toLowerCase());
+        });
+
+        $("#fld_filter").on("input", function() {
+            const filter_text = $(this).val().toLowerCase();
+
+            clearTimeout(filterTimeout);
+            filterTimeout = setTimeout(function () {
+                if (filter_text === "") {
+                    $(".ListHeader").show();
+                    $(".Note").show();
+                    $(".FlRowResults").show();
+                    $(".FlRowResults").next().show(); // Show dividers
+                    return;
+                }
+
+                $(".ListHeader").hide();
+                $(".Note").hide();
+                $(".FlRowResults").each(function() {
+                    const $row = $(this);
+                    const rowText = $row.data("rowText"); // Fast lookup from cache
+
+                    if (rowText.includes(filter_text)) { // match
+                        $row.show();
+                        $row.prevAll(".ListHeader:first").show();
+                        $row.next().show(); // divider
+                    } else { // no match
+                        $row.hide();
+                        $row.next().hide(); // divider
+                    }
+                });
+            }, 150); // debounce
+        });
+
+        $("#fld_filter_clear").click(function(){
+            $("#fld_filter").val("").trigger("input")
+        })
+
+        $('#btn_onoff_autoscroll')
+            .click(function (e) {
+                e.stopPropagation(); // keep the menu up when interacting with menu items
+                if ($("#img_onoff_autoscroll").attr('src') == 'img/img_icon_checked.svg') {
+                    $('#btn_onoff_autoscroll').addClass("MenuItemLabelOff").removeClass("MenuItemLabelOn");
+                    $('#img_onoff_autoscroll').attr('src', 'img/img_icon_unchecked.svg');
+                    // show all groups
+                    $(".ListHeader").show()
+
+                    $(".HorizontalScrollWrapper").css('margin-bottom', ''); // revert to CSS value for empty page margin at bottom
+
+                    StopScrollDown();
+                    gAutoScroll = 0;
+                } else {
+                    $('#btn_onoff_autoscroll').addClass("MenuItemLabelOn").removeClass("MenuItemLabelOff");
+                    $('#img_onoff_autoscroll').attr('src', 'img/img_icon_checked.svg');
+                    // hide collapsed groups
+                    $(".ListHeader").each(function(){
+                        if ($(this).find('.ExpandCollapseIcon').attr('src').includes('expand')) {
+                            $(this).hide();
+                        }
+                    })
+
+                    $(".HorizontalScrollWrapper").css('margin-bottom', '0px'); // remove empty page margin at bottom
+
+                    ScrollDown();
+                    gAutoScroll = 1;
+                }
+            });
+
+        $('#btn_onoff_details')
+            .click(function(e){
+                e.stopPropagation(); // keep the menu up when interacting with menu items
+                if (gViewDetails == 1) {
+                    $('#btn_onoff_details').addClass("MenuItemLabelOff").removeClass("MenuItemLabelOn");
+                    $('#img_onoff_details').attr('src', 'img/img_icon_unchecked.svg');
+                    $('.ResultDetailsShowHide').hide();
+                    gViewDetails = 0;
+                } else {
+                    $('#btn_onoff_details').addClass("MenuItemLabelOn").removeClass("MenuItemLabelOff");
+                    $('#img_onoff_details').attr('src', 'img/img_icon_checked.svg');
+                    $('.ResultDetailsShowHide').show();
+                    gViewDetails = 1;
+                }
+                CalcAllRows()
+                SetListViewWidth()
+        })
+
+        $('#btn_toggle_splits').click(function(e) {
+            e.stopPropagation(); // keep the menu up until page refresh
+            if (gSplitsOrInterval == 1) {
+                gSplitsOrInterval = 2; // turn off
+                gRankBy = 0 // default to no column highlighting
+                $('#btn_toggle_splits').find("img").attr('src', 'img/img_icon_unchecked.svg')
+            } else {
+                gSplitsOrInterval = 1;
+                $('#btn_toggle_intervals').find("img").attr('src', 'img/img_icon_unchecked.svg')
+                $('#btn_toggle_splits').find("img").attr('src', 'img/img_icon_checked.svg')
+            }
+            CalcAllRows()
+        });
+
+        $('#btn_toggle_intervals').click(function(e) {
+            e.stopPropagation(); // keep the menu up until page refresh
+            if (gSplitsOrInterval == 0) {
+                gSplitsOrInterval = 2; // turn off
+                gRankBy = 0 // default to no column highlighting
+                $('#btn_toggle_intervals').find("img").attr('src', 'img/img_icon_unchecked.svg')
+            } else {
+                gSplitsOrInterval = 0;
+                $('#btn_toggle_splits').find("img").attr('src', 'img/img_icon_unchecked.svg')
+                $('#btn_toggle_intervals').find("img").attr('src', 'img/img_icon_checked.svg')
+            }
+            CalcAllRows()
+        });
+
+        $('#btn_toggle_waves, #btn_toggle_categories, #btn_toggle_gender').click(function(e) {
+            e.stopPropagation(); // keep the menu up until page refresh
+            // gGroupByWCGF: 0=not defined, 1=by Wave, 2=by Category, 3=by Gender, 4=flat
+            if (gGroupByWCGF == $(this).data('value')) {
+                gGroupByWCGF = 4; // toggle: make flat when currently grouped
+                $(this).find("img").attr('src', 'img/img_icon_unchecked.svg') // uncheck me
+            } else {
+                gGroupByWCGF = $(this).data('value');
+                $('#btn_toggle_waves, #btn_toggle_categories, #btn_toggle_gender').find("img").attr('src', 'img/img_icon_unchecked.svg'); // uncheck all
+                $(this).find("img").attr('src', 'img/img_icon_checked.svg'); // check me
+            }
+            CalcAllRows()
+            if (gGroupByWCGF !== 1) {
+                if (gProgressionMode) { $('#btn_progression').trigger('click'); }
+                $('#btn_progression').hide();
+            } else {
+                $('#btn_progression').show();
+            }
+        });
+
+        $("#btn_recent_finishers").click(function(){
+            racetitle = $("#pagetitle").text();
+            $("#race_title_2").text(racetitle);
+            dialog_recentfinishers.showModal();
+            UpdateRecentFinishersList()
+        })
+
+        $('#btn_download').click(function() {
+            ExportExcel()
+        });
+
+        $('#feedback').click(function() { $(this).slideUp(300); });
+
+        $("#btn_home")
+            .on('mouseenter', function() {
+                $(this).css('cursor', 'pointer');
+            })
+            .on('mouseleave', function() {
+                $(this).css('cursor', 'default');
+            })
+            .click(function(){
+                window.location.href = 'https://raceclocker.com/';
+            })
+
+        clipboard.on('success', function (e) {
+            $("#clipboard_message").html("A public link to these results<a href='https://raceclocker.com/dd7293a5' target='_blank'>raceclocker.com/dd7293a5</a>is copied to your clipboard.")
+
+            QR_url = "https://quickchart.io/qr?text=https%3A%2F%2F" + "raceclocker.com" + "%2F" + "dd7293a5" + "&size=280&dark=1F3140&centerImageUrl=https%3A%2F%2Fraceclocker.com%2Fimg%2Fraceclocker_tile.png&centerImageSizeRatio=0.4"
+
+            console.log(QR_url);
+            $("#qrcode img").attr("src", QR_url);
+            $("#qrcode img").attr("height", "280px");
+            dialog_share.showModal();
+        });
+
+        $("#btn_close_dialog_share, #btn_close_dialog_laps, #btn_close_dialog_extra_info, #btn_close_dialog_results, #btn_close_dialog_recentfinishers").click(function(){
+            const y = window.scrollY;
+            dialog_share.close();
+            dialog_extra_info.close();
+            dialog_laps.close();
+            dialog_result.close();
+            dialog_recentfinishers.close();
+            window.location.hash = "";
+            // Firefox-specific scroll fix
+            if (navigator.userAgent.indexOf("Firefox") > -1) {
+                setTimeout(() => window.scrollTo(0, y), 0);
+            }
+        })
+
+
+        dialog_share.addEventListener('click', (function(e) { // close dialog on click outside
+                let rect = e.target.getBoundingClientRect();
+                if (rect.left > e.clientX || rect.right < e.clientX || rect.top > e.clientY || rect.bottom < e.clientY) {
+                    dialog_share.close();
+                }
+            })
+        );
+
+        dialog_extra_info.addEventListener('click', (function(e) { // close dialog on click outside
+                let rect = e.target.getBoundingClientRect();
+                if (rect.left > e.clientX || rect.right < e.clientX || rect.top > e.clientY || rect.bottom < e.clientY) {
+                    dialog_extra_info.close();
+                }
+            })
+        );
+
+        dialog_laps.addEventListener('click', (function(e) { // close dialog on click outside
+                let rect = e.target.getBoundingClientRect();
+                if (rect.left > e.clientX || rect.right < e.clientX || rect.top > e.clientY || rect.bottom < e.clientY) {
+                    dialog_laps.close();
+                    window.location.hash = "";
+                }
+            })
+        );
+
+        dialog_result.addEventListener('click', (function(e) { // close dialog on click outside
+                let rect = e.target.getBoundingClientRect();
+                if (rect.left > e.clientX || rect.right < e.clientX || rect.top > e.clientY || rect.bottom < e.clientY) {
+                    dialog_result.close();
+                }
+            })
+        );
+
+        dialog_recentfinishers.addEventListener('click', (function(e) { // close dialog on click outside
+                let rect = e.target.getBoundingClientRect();
+                if (rect.left > e.clientX || rect.right < e.clientX || rect.top > e.clientY || rect.bottom < e.clientY) {
+                    dialog_recentfinishers.close();
+                }
+            })
+        );
+
+        $('.RankingBadge').click(function(){
+            myBadgenr = $(this).find("span").eq(0).text();
+            myBadgetext = $(this).find("span").eq(1).text();
+            myID = $(this).attr('id').split("_")[0];
+            myresult = AllResults.find(function (item) {
+                return item.RaceID === myID;
+            });
+            racetitle = $("#pagetitle").text();
+            iconpathorg = $("#sporticon").attr('src')
+            iconpathtarget = iconpathorg.substring(0,iconpathorg.lastIndexOf('.')) + '_dark.svg';
+
+            $("#race_icon").html("<img style='width: 100%;' src='" + iconpathtarget + "'>").css('width','4vw');
+            $("#race_title").text(racetitle);
+            if (myBadgenr != "") {
+                $("#race_badgenr").text(myBadgenr);
+                $("#race_badgetext").text(myBadgetext);
+            }
+
+            if (myresult !== undefined) {
+                if (gRankBy == 7) { // handicap result
+                    $("#race_result").html(
+                        ShortestNotedTime(SecsToTime(myresult.TmHandicapSec))
+                            .replace(/(\.\d+)$/, '<span class="Decimal">$1</span>')
+                    );
+                } else {
+                    $("#race_result").html(
+                        ShortestNotedTime(SecsToTime(myresult.TmResultSec))
+                            .replace(/(\.\d+)$/, '<span class="Decimal">$1</span>')
+                    );
+                }
+
+                $("#race_name").text(myresult.Name);
+
+                club_cat = "";
+                if (ShowCat || ShowClub) {
+                    if (ShowCat) { club_cat += myresult.Cat; }
+                    if (ShowCat && ShowClub) { club_cat += " · " }
+                    if (ShowClub) { club_cat += myresult.Club; }
+                }
+                $("#race_club_cat").text(club_cat)
+            }
+            dialog_result.showModal();
+        })
+
+        $('.ListLink').click(function(){
+            RaceID = $(this).data('raceid');
+
+            // create header for dialog
+            Bib = "";
+            Club = "";
+            Category = "";
+            Name = "<div class='Type_black_10_bold'>" + $(this).text() + "</div>";
+            if (ShowBib) { Bib = "<div class='Type_black_10_bold BibBorder'>" + $(this).parent().parent().find('.BibBorder').text() + "</div>"; }
+            if (ShowClub) { Club = "<div class='Type_blue_10'>" + $(this).parent().next().find('.LineClub').text() + "</div>"; }
+            if (ShowCat) { Category = "<div class='Type_grey_10'>" + $(this).parent().next().find('.LineCategory').text() + "</div>"; }
+            $('#extra_info')
+                .html("") // clear
+                .append("<div class='FlRow Centered'>" + Bib + Name + "</div>") // add name and Bib // clear
+                .append("<div class='FlRow Centered'>" + Club + Category + "</div>") // add name and Bib // clear
+                .append("<div class='VerticalSpacerHalf'></div>");
+
+            // find extra info for RaceID
+            for (let i=0; i < AllResults.length; i++) {
+                if (AllResults[i]['RaceID'] == RaceID) {
+                    extrainfo = AllResults[i]['ExtraInfo'];
+                    extrainfo.forEach(function(row){
+                        $('#extra_info').append("<div class='FlRow'><div class='Type_grey_8 FlColumn FlColThreeQuarter RightAlignText'>" + row[0]  + "</div><div class='Type_black_10 FlColumn FlColOneAndHalf Name LeftAlignText'>" + row[1]  + "</div></div>")
+                    })
+                    break;
+                }
+            }
+            dialog_extra_info.showModal();
+        })
+
+        $(document).on('click', '.ListLinkFilter', function(){
+            FilterText = $(this).text();
+            $("#fld_filter").val(FilterText).trigger("input").focus();
+            $('html, body').animate({scrollTop:$("#fld_filter").offset().top-16}, 'fast');
+        })
+
+        $("#weather_widget").click(function(e){
+            e.stopPropagation();
+            HideMenus();
+            $("#weather_widget_menu").fadeIn(200);
+        })
+
+
+        // sorting start list by column
+        $('#sortSplit_1, #sortSplit_2, #sortSplit_3, #sortSplit_4, #sortSplit_5, #sortResult, #sortHandicap')
+            .mouseenter(function() {
+                $(this)
+                    .addClass("ColumnHeaderHover")
+                    .find('img').attr('src', 'img/img_icon_dropdown_hot.svg'); // hilight icon
+            })
+            .mouseleave(function() {
+                $(this)
+                    .removeClass("ColumnHeaderHover")
+                    .find('img').attr('src', 'img/img_icon_dropdown.svg'); // hilight icon
+            })
+            .click(function() {
+                $(this).removeClass("ColumnHeaderHover").addClass("ColumnHeaderHot");
+
+                if (this.id === "sortSplit_1") {
+                    if (gRankBy == 1) {gRankBy = 0} else {gRankBy = 1} // toggle
+                }
+                if (this.id === "sortSplit_2") {
+                    if (gRankBy == 2) {gRankBy = 0} else {gRankBy = 2} // toggle
+                }
+                if (this.id === "sortSplit_3") {
+                    if (gRankBy == 3) {gRankBy = 0} else {gRankBy = 3} // toggle
+                }
+                if (this.id === "sortSplit_4") {
+                    if (gRankBy == 4) {gRankBy = 0} else {gRankBy = 4} // toggle
+                }
+                if (this.id === "sortSplit_5") {
+                    if (gRankBy == 5) {gRankBy = 0} else {gRankBy = 5} // toggle
+                }
+                if (this.id === "sortResult") {
+                    if (gRankBy == 6) {gRankBy = 0} else {gRankBy = 6} // toggle
+                }
+                if (this.id === "sortHandicap") {
+                    if (gRankBy == 7) {gRankBy = 0} else {gRankBy = 7} // toggle
+                }
+                CalcAllRows();
+            });
+
+        $(window).scroll(function () {
+            if ($(window).scrollTop() + $(window).height() + 1 >= $(document).height() && gAutoScroll) {
+                HideMenus()
+                $('html, body').animate({scrollTop: 0}, 500);
+            }
+        });
+
+        if (gAutoScroll == 1) {
+            $("#btn_onoff_autoscroll").trigger("click");
+        }
+
+        HandleHashChange() // check for hash
+
+        window.onhashchange = function() {
+            HandleHashChange()
+        }
+
+        // Progression functions here
+            });
+
+    function HandleHashChange() {
+        if (location.hash) {
+            const hashValue = window.location.hash.substring(1);
+
+            if (hashValue === 'finishers') {
+                $("#btn_recent_finishers").trigger("click");
+            } else {
+                // Existing numeric bib logic
+                myBib = hashValue;
+                RowData = AllResults.filter(subarray => subarray['Bib'] == myBib);
+                if (RowData.length > 0) {
+                    ShowAllLapResults(RowData[0]["RaceID"])
+                }
+            }
+        }
+    }
+
+    function CalcAllRows(RowToHighlight) {
+
+        AllResults.forEach(function(item){
+            CalcResultsPerRow(item['RaceID'])
+        })
+        ShowHideSplits()
+        GroupRankDiffAll()
+        HighlightSelectedSplit()
+        UpdateListNotes()
+        UpdateRecentFinishersList()
+        $('.LineCategory').toggleClass('ListLinkFilter', gGroupByWCGF != 2); // searchable unless grouped by Category (where it's already the group header)
+
+        if (typeof RowToHighlight !== 'undefined') { // list view update when RowToHighlight is passed
+            shortpause = setTimeout(function () {
+                $("#row_" + RowToHighlight)
+                    .css("background-color", "var(--blue-medium)")
+                    .slideDown(300, function () {
+                        $(this).addClass("FadeOutBackGround")
+                    })
+            }, 200);
+        }
+
+            }
+
+    function CalcResultsPerRow(RowID) {
+
+        RowData = AllResults.filter(subarray => subarray['RaceID'] == RowID)[0]; // get row data for RowID
+
+        // Update Results
+        //  Special case DQ, DNS or DNF - as they've been set by race director and can't be changed based on timing
+        if (RowData['Result'] == "DQ" || RowData['Result'] == "DNF" || RowData['Result'] == "DNS") {
+            RowData['TmSplit1Sec'] = RowData['TmSplit2Sec'] = RowData['TmSplit3Sec'] = RowData['TmSplit4Sec'] = RowData['TmSplit6Sec'] = RowData['TmSplit5Sec'] = RowData['TmResultSec'] = RowData['TmSplitHandicapSec'] = 0;
+            $("#" + RowData['RaceID']  + "_Col1").text("-");
+            $("#" + RowData['RaceID']  + "_Col2").text("-");
+            $("#" + RowData['RaceID']  + "_Col3").text("-");
+            $("#" + RowData['RaceID']  + "_Col4").text("-");
+            $("#" + RowData['RaceID']  + "_Col5").text("-");
+            $("#" + RowData['RaceID']  + "_Handicap").text("-");
+            $("#" + RowData['RaceID']  + "_Speed").text("-");
+
+            // Check for penalty and print result in grey
+            if (RowData['PenaltyNote'] != "") { // include tooltip
+                $("#" + RowData['RaceID']  + "_Result").removeClass("Type_black_10_bold").addClass("Type_grey_8 ToolTip").html("<span class='ToolTipText'>" + RowData['PenaltyNote'] + "</span><img class='ListIconPenalty' src='img/img_icon_check.svg'><span class='Type_grey_10'>" + RowData['Result'] + "</span>")
+            } else {
+                $("#" + RowData['RaceID']  + "_Result").removeClass("Type_black_10_bold").addClass("Type_grey_8").text(RowData['Result']);
+                $("#" + RowData['RaceID']  + "_Resultdiff").text("\u00A0");
+            }
+            if (RowData['Result'] == "DQ" || RowData['Result'] == "DNS") {
+            // if (RowData['Result'] == "DQ" || RowData['Result'] == "DNS" || RowData['Result'] == "DNF") {
+                return; // stop here, only continue in case 'DNF' as there may be splits
+            }
+        }
+
+
+        // Determine state: 'in race...'
+        if (RowData['TmSplit1'] != "00:00:00" && RowData['TmSplit5'] == "00:00:00" && RowData['Result'] != "DNF") {
+                $("#" + RowData['RaceID']  + "_Result").removeClass("Type_black_10_bold").addClass("Type_grey_8").text('In race...');
+                $("#" + RowData['RaceID']  + "_Resultdiff").text("\u00A0"); // = &nbsp;
+                RowData['TmResultSec'] = 0;
+                RowData['Result']="In race..."
+        }
+
+        // Determine state: 'Missing start time'
+        if (RowData['TmSplit1'] == "00:00:00" && (RowData['TmSplit2'] != "00:00:00" || RowData['TmSplit3'] != "00:00:00" || RowData['TmSplit4'] != "00:00:00" || RowData['TmSplit6'] != "00:00:00" || RowData['TmSplit5'] != "00:00:00")) {
+            $("#" + RowData['RaceID']  + "_Result").removeClass("Type_black_10_bold").addClass("Type_grey_8").text('Missing start time');
+            $("#" + RowData['RaceID']  + "_Resultdiff").text("\u00A0"); // = &nbsp;
+            RowData['TmResultSec'] = 0;
+        }
+
+        // Determine state: 'Not started'
+        if (RowData['TmSplit1'] == "00:00:00" && RowData['TmSplit2'] == "00:00:00" && RowData['TmSplit3'] == "00:00:00" && RowData['TmSplit4'] == "00:00:00" && RowData['TmSplit6'] == "00:00:00" && RowData['TmSplit5'] == "00:00:00") {
+            $("#" + RowData['RaceID']  + "_Result").removeClass("Type_black_10_bold").addClass("Type_grey_8").text('Not started');
+            $("#" + RowData['RaceID']  + "_Resultdiff").text("\u00A0");  // = &nbsp;
+            RowData['TmResultSec'] = 0;
+        }
+
+        // Normal result - apply penalty if set
+        if (RowData['TmSplit1'] != "00:00:00" && RowData['TmSplit5'] != "00:00:00" ) {
+            Diff = TimeDiff((RowData['TmSplit1'] + '.' + RowData['TmSplit1dc']),(RowData['TmSplit5'] + '.' + RowData['TmSplit5dc']));
+            if (RowData['Penalty'] != "0") {
+                RowData['TmResultSec'] = parseInt(RowData['Penalty']) + TimeToSecs(Diff)
+            } else {
+                RowData['TmResultSec'] = TimeToSecs(Diff)
+            }
+            $("#" + RowData['RaceID']  + "_Result").addClass("Type_black_10_bold").removeClass("Type_grey_8").text(ShortestNotedTime(SecsToTime(RowData['TmResultSec'])));
+            $("#" + RowData['RaceID']  + "_Resultdiff").text("diff");
+        }
+
+
+
+        // Determine splits
+        if (gSplitsOrInterval == 0) { // intervals - compare with previous split
+
+            if (SplitsCount > 0) { //
+                // Start
+                if (RowData['TmSplit1'] == "00:00:00" || RowData['TmSplit2'] == "00:00:00") { // no interval if either start or split 1 is missing
+                    RowData['TmSplit2Sec'] = 0
+                    $("#" + RowData['RaceID']  + "_Col1").text("-");
+                } else {
+                    Diff = TimeDiff((RowData['TmSplit1'] + '.' + RowData['TmSplit1dc']),(RowData['TmSplit2'] + '.' + RowData['TmSplit2dc']));
+                    RowData['TmSplit2Sec'] = TimeToSecs(Diff)
+                    $("#" + RowData['RaceID']  + "_Col1").text(ShortestNotedTime(Diff));
+                }
+
+                if (RowData['TmSplit5'] == "00:00:00") { // no interval if finish is missing
+                    RowData['TmSplit5Sec'] = 0
+                    $("#" + RowData['RaceID']  + "_Col5").text("-");
+                } else {
+                    // Final interval (Col5) depends on number of splits
+                    // 1 split, final interval = 2 > 5
+                    // 2 splits, final interval = 3 > 5
+                    // 3 splits, final interval = 4 > 5
+                    // 4 splits, final interval = 6 > 5
+                    switch (SplitsCount) {
+                        case 1 :
+                            IntervalStartTime = RowData['TmSplit2'] + '.' + RowData['TmSplit2dc']
+                            break;
+                        case 2 :
+                            IntervalStartTime = RowData['TmSplit3'] + '.' + RowData['TmSplit3dc']
+                            break;
+                        case 3 :
+                            IntervalStartTime = RowData['TmSplit4'] + '.' + RowData['TmSplit4dc']
+                            break;
+                        case 4 :
+                            IntervalStartTime = RowData['TmSplit6'] + '.' + RowData['TmSplit6dc']
+                            break;
+                    }
+
+                    if (IntervalStartTime == "00:00:00.0") { // no interval if start of split is missing
+                        RowData['TmSplit5Sec'] = 0
+                        $("#" + RowData['RaceID']  + "_Col5").text("-");
+                    } else {
+                        Diff = TimeDiff(IntervalStartTime,(RowData['TmSplit5'] + '.' + RowData['TmSplit5dc']));
+                        RowData['TmSplit5Sec'] = TimeToSecs(Diff)
+                        $("#" + RowData['RaceID']  + "_Col5").text(ShortestNotedTime(Diff));
+                    }
+                }
+            }
+
+            if (SplitsCount > 1) {
+                if (RowData['TmSplit2'] == "00:00:00" || RowData['TmSplit3'] == "00:00:00") { // no interval if either is missing
+                    RowData['TmSplit3Sec'] = 0
+                    $("#" + RowData['RaceID']  + "_Col2").text("-");
+                } else {
+                    Diff = TimeDiff((RowData['TmSplit2'] + '.' + RowData['TmSplit2dc']),(RowData['TmSplit3'] + '.' + RowData['TmSplit3dc']))
+                    RowData['TmSplit3Sec'] = TimeToSecs(Diff)
+                    $("#" + RowData['RaceID']  + "_Col2").text(ShortestNotedTime(Diff));
+                }
+            }
+
+            if (SplitsCount > 2) {
+                if (RowData['TmSplit3'] == "00:00:00" || RowData['TmSplit4'] == "00:00:00") { // no interval if either is missing
+                    RowData['TmSplit4Sec'] = 0
+                    $("#" + RowData['RaceID']  + "_Col3").text("-");
+                } else {
+                    Diff = TimeDiff((RowData['TmSplit3'] + '.' + RowData['TmSplit3dc']),(RowData['TmSplit4'] + '.' + RowData['TmSplit4dc']))
+                    RowData['TmSplit4Sec'] = TimeToSecs(Diff)
+                    $("#" + RowData['RaceID']  + "_Col3").text(ShortestNotedTime(Diff));
+                }
+            }
+
+            if (SplitsCount > 3) {
+                if (RowData['TmSplit4'] == "00:00:00" || RowData['TmSplit6'] == "00:00:00") { // no interval if either is missing
+                    RowData['TmSplit6Sec'] = 0
+                    $("#" + RowData['RaceID']  + "_Col4").text("-");
+                } else {
+                    Diff = TimeDiff((RowData['TmSplit4'] + '.' + RowData['TmSplit4dc']),(RowData['TmSplit6'] + '.' + RowData['TmSplit6dc']))
+                    RowData['TmSplit6Sec'] = TimeToSecs(Diff)
+                    $("#" + RowData['RaceID']  + "_Col4").text(ShortestNotedTime(Diff));
+                }
+            }
+
+        } else if (gSplitsOrInterval == 1) { // splits - compare with start time
+
+            if (SplitsCount > 0) {
+
+                if (RowData['TmSplit1'] == "00:00:00" || RowData['TmSplit2'] == "00:00:00") { // no split if either is missing
+                    RowData['TmSplit2Sec'] = 0
+                    $("#" + RowData['RaceID']  + "_Col1").text("-");
+                } else {
+                    Diff = TimeDiff((RowData['TmSplit1'] + '.' + RowData['TmSplit1dc']),(RowData['TmSplit2'] + '.' + RowData['TmSplit2dc']));
+                    RowData['TmSplit2Sec'] = TimeToSecs(Diff)
+                    $("#" + RowData['RaceID']  + "_Col1").text(ShortestNotedTime(Diff));
+                }
+
+                if (RowData['TmSplit1'] == "00:00:00" || RowData['TmSplit5'] == "00:00:00") { // no split if either is missing
+                    RowData['TmSplit5Sec'] = 0
+                    $("#" + RowData['RaceID']  + "_Col5").text("-");
+                } else {
+                    Diff = TimeDiff((RowData['TmSplit1'] + '.' + RowData['TmSplit1dc']),(RowData['TmSplit5'] + '.' + RowData['TmSplit5dc']));
+                    RowData['TmSplit5Sec'] = TimeToSecs(Diff)
+                    $("#" + RowData['RaceID']  + "_Col5").text(ShortestNotedTime(Diff));
+                }
+            }
+
+            if (SplitsCount > 1) {
+                if (RowData['TmSplit1'] == "00:00:00" || RowData['TmSplit3'] == "00:00:00") { // no split if either is missing
+                    RowData['TmSplit3Sec'] = 0
+                    $("#" + RowData['RaceID']  + "_Col2").text("-");
+                } else {
+                    Diff = TimeDiff((RowData['TmSplit1'] + '.' + RowData['TmSplit1dc']),(RowData['TmSplit3'] + '.' + RowData['TmSplit3dc']))
+                    RowData['TmSplit3Sec'] = TimeToSecs(Diff)
+                    $("#" + RowData['RaceID']  + "_Col2").text(ShortestNotedTime(Diff));
+                }
+            }
+
+            if (SplitsCount > 2) {
+                if (RowData['TmSplit1'] == "00:00:00" || RowData['TmSplit4'] == "00:00:00") { // no split if either is missing
+                    RowData['TmSplit4Sec'] = 0
+                    $("#" + RowData['RaceID']  + "_Col3").text("-");
+                } else {
+                    Diff = TimeDiff((RowData['TmSplit1'] + '.' + RowData['TmSplit1dc']),(RowData['TmSplit4'] + '.' + RowData['TmSplit4dc']))
+                    RowData['TmSplit4Sec'] = TimeToSecs(Diff)
+                    $("#" + RowData['RaceID']  + "_Col3").text(ShortestNotedTime(Diff));
+                }
+            }
+
+            if (SplitsCount > 3) {
+                if (RowData['TmSplit1'] == "00:00:00" || RowData['TmSplit6'] == "00:00:00") { // no split if either is missing
+                    RowData['TmSplit6Sec'] = 0
+                    $("#" + RowData['RaceID']  + "_Col4").text("-");
+                } else {
+                    Diff = TimeDiff((RowData['TmSplit1'] + '.' + RowData['TmSplit1dc']),(RowData['TmSplit6'] + '.' + RowData['TmSplit6dc']))
+                    RowData['TmSplit6Sec'] = TimeToSecs(Diff)
+                    $("#" + RowData['RaceID']  + "_Col4").text(ShortestNotedTime(Diff));
+                }
+            }
+        }
+
+
+        // if lap race, then include lap results (override result)
+        if (gLapRace) {
+
+            CoveredDistance = 0; // track custom laps completed distance
+
+            for (let m=1; m<RowData['Laps'].length; m++) { // iterate over laps
+
+                // show lap time for each lap
+                my_id = "#" + RowData['RaceID'] + "_lap_" + m;
+                LapStart = RowData['Laps'][m-1]['LapTime'] + "." + RowData['Laps'][m-1]['LapTimedc'];
+                LapEnd = RowData['Laps'][m]['LapTime'] + "." + RowData['Laps'][m]['LapTimedc'];
+
+                LapResultPrint = ShortestNotedTime(TimeDiff(LapStart, LapEnd))
+                $(my_id).text(LapResultPrint);
+
+                // add time in sec to all laps
+                RowData['Laps'][m]['LapTimeSec'] = TimeToSecs(TimeDiff(LapStart, LapEnd));
+
+                // calculate completed distance
+                if (gHasCustomLaps) {
+                    CoveredDistance += parseFloat(AllCustomLapNamesAndDistances[m-1]["LapDistance"]) // custom lap distance
+                } else {
+                    CoveredDistance += parseFloat(Distance); // add standard lap distance
+                }
+            }
+
+            // to cover 'undo' case: clear lap to the right (if the id exists)
+            LapNextIndex = RowData['Laps'].length
+            my_id = "#" + RowData['RaceID'] + "_lap_" + LapNextIndex;
+            if ($(my_id).length) { // ID exists?
+                $(my_id).text("-"); // then blank
+            }
+
+            // Update Result
+            if (RowData['Laps'].length > 1 && RowData['Result'] != "DNF") { // when at least one lap in AllResults
+                StartTime = RowData['Laps'][0]['LapTime'] + "." + RowData['Laps'][0]['LapTimedc']
+                if (RowData['Penalty'] != "0") {
+                    RowData['TmResultSec'] = parseInt(RowData['Penalty']) + TimeToSecs(TimeDiff(StartTime, LapEnd))
+                } else {
+                    RowData['TmResultSec'] = TimeToSecs(TimeDiff(StartTime, LapEnd))
+                }
+
+                $("#" + RowData['RaceID']  + "_Result").addClass("Type_black_10_bold").removeClass("Type_grey_8").text(ShortestNotedTime(SecsToTime(RowData['TmResultSec'])));
+                $("#" + RowData['RaceID']  + "_Resultdiff").text("diff");
+            }
+
+        }
+
+
+        // handicap
+        if (ShowHandicap) {
+            if (RowData['TmResultSec'] == 0) {
+                RowData['TmHandicapSec'] = 0
+                $("#" + RowData['RaceID']  + "_Handicap").text("-");
+            } else {
+                Diff = SecsToTime(RowData['TmResultSec'] * RowData['Handicap'])
+                RowData['TmHandicapSec'] = TimeToSecs(Diff)
+                $("#" + RowData['RaceID']  + "_Handicap").text(ShortestNotedTime(Diff))
+            }
+        }
+
+        // speed
+        // if applicable, subtract penalty from result
+        if (RowData['Penalty'] != "0") {
+            Net_TmResult = RowData['TmResultSec'] - parseInt(RowData['Penalty'])
+        } else {
+            Net_TmResult = RowData['TmResultSec']
+        }
+
+        if (gLapRace) {
+            $("#" + RowData['RaceID']  + "_Speed").text(CalcSpeed(Net_TmResult, CoveredDistance, DistanceUnit));
+        } else {
+            let CoveredDistance = Distance;
+            if (RowData['WaveID'] && WaveDistanceOverrides[RowData['WaveID']]) {
+                CoveredDistance = WaveDistanceOverrides[RowData['WaveID']];
+            } else if (RowData['CategoryID'] && CategoryDistanceOverrides[RowData['CategoryID']]) {
+                CoveredDistance = CategoryDistanceOverrides[RowData['CategoryID']];
+            }
+            $("#" + RowData['RaceID']  + "_Speed").text(CalcSpeed(Net_TmResult, CoveredDistance, DistanceUnit));
+        }
+    }
+
+    function ShowHideSplits() {
+        // show/hide splits
+        switch (gSplitsOrInterval) {     //    ViewSplits: 0,1,2 - splits, intervals or none
+            case 0: // interval times
+                $('#sortSplit_1 span').text("↦ " + SplitNames[1]); // update label in <b> tag
+                $('#sortSplit_2 span').text("↦ " + SplitNames[2]);
+                $('#sortSplit_3 span').text("↦ " + SplitNames[3]);
+                $('#sortSplit_4 span').text("↦ " + SplitNames[4]);
+                $('#sortSplit_5 span').text("↦ " + SplitNames[5]);
+                $('#sortSplit_1, #sortSplit_2, #sortSplit_3, #sortSplit_4, #sortSplit_5').fadeIn(400);
+                $('.ColumnSplit_1, .ColumnSplit_2, .ColumnSplit_3, .ColumnSplit_4, .ColumnSplit_5').fadeIn(400);
+                break;
+            case 1: // split times:
+                $('#sortSplit_1 span').text(SplitNames[1]); // update label in <b> tag
+                $('#sortSplit_2 span').text(SplitNames[2]);
+                $('#sortSplit_3 span').text(SplitNames[3]);
+                $('#sortSplit_4 span').text(SplitNames[4]);
+                $('#sortSplit_5 span').text(SplitNames[5]);
+                $('#sortSplit_5, .ColumnSplit_5').hide();
+                $('#sortSplit_1, #sortSplit_2, #sortSplit_3, #sortSplit_4').fadeIn(400);
+                $('.ColumnSplit_1, .ColumnSplit_2, .ColumnSplit_3, .ColumnSplit_4').fadeIn(400);
+
+                break;
+            case 2: // No splits or interval, hide all
+                $('#sortSplit_1, #sortSplit_2, #sortSplit_3, #sortSplit_4, #sortSplit_5').hide();
+                $('.ColumnSplit_1, .ColumnSplit_2, .ColumnSplit_3, .ColumnSplit_4, .ColumnSplit_5').hide();
+                break;
+        }
+    }
+
+    function GroupRankDiffAll() {
+
+        // init ordering and diffing
+        const Splits = ['TmSplit2Sec', 'TmSplit3Sec','TmSplit4Sec', 'TmSplit6Sec', 'TmSplit5Sec', 'TmResultSec', 'TmHandicapSec'];
+        const ColumnsToDiff = [
+            ['_Col1diff', 'TmSplit2Sec'],
+            ['_Col2diff', 'TmSplit3Sec'],
+            ['_Col3diff', 'TmSplit4Sec'],
+            ['_Col4diff', 'TmSplit6Sec'],
+            ['_Col5diff', 'TmSplit5Sec'],
+            ['_Resultdiff', 'TmResultSec'],
+            ['_Handicapdiff', 'TmHandicapSec']]
+        SubResults = [];
+        $("#racelist .Divider").remove() // clear all separator lines up front
+        $("#headerlist").append($(".ListHeader")) // move all group headers to header list
+
+        if (gRankBy == 0) { // no column selected
+            i = 5 // sort by results
+        } else {
+            i = gRankBy-1; // sort by other column
+        }
+
+        switch (gGroupByWCGF) { // ViewGroupBy: 0,1,2,3,4 - group headers (0=not defined, 1=by Wave, 2=by Category, 3=by Gender, 4=flat)
+            case 1: // wave
+                GroupSet = AllWaves;
+                div_header_prefix = "#wave_";
+                groupfilterID = 'WaveID'
+                $("#img_exp_col_all").show();
+                break;
+            case 2: // category
+                GroupSet = AllCategories;
+                div_header_prefix = "#category_";
+                groupfilterID = 'CategoryID'
+                $("#img_exp_col_all").show();
+                break;
+            case 3: // gender
+                GroupSet = AllGenders;
+                div_header_prefix = "#gender_";
+                groupfilterID = 'GenderID'
+                $("#img_exp_col_all").show();
+                break;
+            case 0: // flat
+            case 4:
+                GroupSet = ['x']; // dummy group, force tp iterate just once through main loop
+                div_header=""; // no headers
+                $("#img_exp_col_all").hide();
+                $('#racelist .FlRow').not('.ListHeader').slideDown(150) // show all items
+        }
+
+        // loop through selected groupset
+        GroupSet.forEach(function(group, index) { // iterate over groups (categories, waves, gender)
+
+            // draw headers when grouped
+            if (gGroupByWCGF == 1 || gGroupByWCGF == 2 || gGroupByWCGF == 3) {
+                div_header = $(div_header_prefix + group[groupfilterID]) // draw group header for gender grouping
+                div_header.show();
+                $("#racelist").append(div_header);
+
+                // filter AllResults in to group based subsets
+                SubResults = AllResults.filter(function(SingleResult) { // filter all results per group ID, e.g. CategoryID
+                    return SingleResult[groupfilterID] == group[groupfilterID]
+                })
+            } else {
+                SubResults = AllResults; // no filtering
+            }
+
+            // Sort rows in the AllResults subgroup based on 'Result' or 'Split time'
+            // or based on the number of completed laps in case of lap race
+            if (gLapRace && gRankBy != 7) { // exception for when sorted by handicap (rank by = 7)
+                SubResults.sort(function(a,b){
+                    if (a['Laps'].length == 0 && b['Laps'].length != 0) { return 1 }
+                    if (a['Laps'].length != 0 && b['Laps'].length == 0) { return -1 }
+                    if (a['Laps'].length == b['Laps'].length) { // same number of laps, fastest on top
+                        return (a['TmResultSec'] - b['TmResultSec']);
+                    } else {
+                        return (b['Laps'].length - a['Laps'].length);
+                    }
+                })
+            } else { // normal race, no laps
+                SubResults.sort(function(a,b){
+                    if (a[Splits[i]] == 0 && b[Splits[i]] != 0) { return 1 }
+                    if (a[Splits[i]] != 0 && b[Splits[i]] == 0) { return -1 }
+                    return (a[Splits[i]] - b[Splits[i]]); // e.g. return (a.TmResultSec - b.TmResultSec);
+                })
+            }
+
+
+            // Order divs in the UI
+            SubResults.forEach(function(SingleResult, index) {
+                my_div = $("#row_" + SingleResult['RaceID'])
+                $("#racelist").append(my_div);
+                if (my_div[0].style.display != 'none') { // much faster than is(:visible)
+                    // only add divider when row is not collapsed
+                    $("#racelist").append('<div class="FlRow Divider"><div class="FlColumn DottedLine"></div></div>');
+                }
+            })
+
+
+            // Update ranking badge in 1st column
+            SubResults.forEach(function(SingleItem, index) {
+                // rank numbering primary badge when sorted by Result (when i == 5) or by Handicap Result (i == 6)
+                if ((i==5 || i==6) && SingleItem['TmResultSec'] != 0) {
+
+                    $("#" + SingleItem['RaceID'] + "_RankBadge").removeClass("RankEmpty")
+                    $("#" + SingleItem['RaceID'] + "_RankBadge span:first").text(index+1); // main blue badge
+                    switch (index) {
+                        case 0:
+                            $("#" + SingleItem['RaceID'] + "_RankBadge span:nth-child(2)").text("st");
+                            break;
+                        case 1:
+                            $("#" + SingleItem['RaceID'] + "_RankBadge span:nth-child(2)").text("nd");
+                            break;
+                        case 2:
+                            $("#" + SingleItem['RaceID'] + "_RankBadge span:nth-child(2)").text("rd");
+                            break;
+                        default:
+                            $("#" + SingleItem['RaceID'] + "_RankBadge span:nth-child(2)").text("th");
+                            break;
+                    }
+                } else {
+                    // empty badge
+                    $("#" + SingleItem['RaceID'] + "_RankBadge").addClass("RankEmpty")
+                    $("#" + SingleItem['RaceID'] + "_RankBadge span").text("\u00A0"); // include nb space for export
+                }
+            })
+
+
+
+            // Update rank numbers for all columns: Splits, Results and Handicap
+            const Column1order=[], Column2order=[], Column3order=[], Column4order=[], Column5order=[], SplitResultOrder=[], SplitHandicapOrder=[];
+
+            SubResults.forEach(function(item) {
+                Column1order.push([item['RaceID'],item['TmSplit2Sec']])
+                Column2order.push([item['RaceID'],item['TmSplit3Sec']])
+                Column3order.push([item['RaceID'],item['TmSplit4Sec']])
+                Column4order.push([item['RaceID'],item['TmSplit6Sec']])
+                Column5order.push([item['RaceID'],item['TmSplit5Sec']])
+                SplitResultOrder.push([item['RaceID'],item['TmResultSec']])
+                SplitHandicapOrder.push([item['RaceID'],item['TmHandicapSec']])
+            })
+
+            Column1order.sort(function(a,b){
+                if (a[1] == 0 && b[1] != 0) { return 1 }
+                if (a[1] != 0 && b[1] == 0) { return -1 }
+                return (a[1] - b[1]);
+            })
+            Column2order.sort(function(a,b){
+                if (a[1] == 0 && b[1] != 0) { return 1 }
+                if (a[1] != 0 && b[1] == 0) { return -1 }
+                return (a[1] - b[1]);
+            })
+            Column3order.sort(function(a,b){
+                if (a[1] == 0 && b[1] != 0) { return 1 }
+                if (a[1] != 0 && b[1] == 0) { return -1 }
+                return (a[1] - b[1]);
+            })
+            Column4order.sort(function(a,b){
+                if (a[1] == 0 && b[1] != 0) { return 1 }
+                if (a[1] != 0 && b[1] == 0) { return -1 }
+                return (a[1] - b[1]);
+            })
+            Column5order.sort(function(a,b){
+                if (a[1] == 0 && b[1] != 0) { return 1 }
+                if (a[1] != 0 && b[1] == 0) { return -1 }
+                return (a[1] - b[1]);
+            })
+            SplitResultOrder.sort(function(a,b){
+                if (a[1] == 0 && b[1] != 0) { return 1 }
+                if (a[1] != 0 && b[1] == 0) { return -1 }
+                return (a[1] - b[1]);
+            })
+            SplitHandicapOrder.sort(function(a,b){
+                if (a[1] == 0 && b[1] != 0) { return 1 }
+                if (a[1] != 0 && b[1] == 0) { return -1 }
+                return (a[1] - b[1]);
+            })
+            Column1order.forEach(function(item,index){
+                if (item[1] != 0) { myRank = "(" + (index+1) + ")" } else { myRank = "\u00A0" }
+                $("#" + item[0] + "_Col1").parent().next().text(myRank); // Column 1 rank numbers
+            })
+            Column2order.forEach(function(item,index){
+                if (item[1] != 0) { myRank = "(" + (index+1) + ")" } else { myRank = "\u00A0" }
+                $("#" + item[0] + "_Col2").parent().next().text(myRank); // Column 2 rank numbers
+            })
+            Column3order.forEach(function(item,index){
+                if (item[1] != 0) { myRank = "(" + (index+1) + ")" } else { myRank = "\u00A0" }
+                $("#" + item[0] + "_Col3").parent().next().text(myRank); // Column 3 rank numbers
+            })
+            Column4order.forEach(function(item,index){
+                if (item[1] != 0) { myRank = "(" + (index+1) + ")" } else { myRank = "\u00A0" }
+                $("#" + item[0] + "_Col4").parent().next().text(myRank); // Column 4 rank numbers
+            })
+            Column5order.forEach(function(item,index){
+                if (item[1] != 0) { myRank = "(" + (index+1) + ")" } else { myRank = "\u00A0" }
+                $("#" + item[0] + "_Col5").parent().next().text(myRank); // Column 5 rank numbers
+            })
+            SplitResultOrder.forEach(function(item,index){
+                if (item[1] != 0) { myRank = "(" + (index+1) + ")" } else { myRank = "\u00A0" }
+                $("#" + item[0] + "_Result").parent().next().text(myRank); // Results column rank
+            })
+            SplitHandicapOrder.forEach(function(item,index){
+                if (item[1] != 0) { myRank = "(" + (index+1) + ")" } else { myRank = "\u00A0" }
+                $("#" + item[0] + "_Handicap").parent().next().text(myRank); // Handicap column rank
+            })
+
+            // calculate diffs per group and per column
+            SubResults.forEach(function(item,index) { // loop through all rows
+
+                if (index == 0) { // first row in (sub)group
+                    // print an empty diff on the first row
+                    ColumnsToDiff.forEach(function(Split){  // ColumnsToDiff = [['_Col1diff', 'TmSplit2Sec'],...]
+                        $("#" + item['RaceID'] + Split[0]).text("\u00A0") // blank
+                    })
+
+                    // print an empty diff on the first row for each lap too
+                    if (gLapRace) {
+                        SubResults[index]['Laps'].forEach(function(Lap) {
+                            LapNumber = Lap['LapNumber'];
+                            $("#" + item['RaceID'] + "_lapdiff_" + LapNumber).text("\u00A0") // blank
+                        })
+                    }
+
+                } else { // subsequent rows
+
+                    // calc and print diff for each split on all rows
+                    ColumnsToDiff.forEach(function(Split){ // loop through all columns // ColumnsToDiff = [['_Col1diff', 'TmSplit2Sec'],...]
+
+                        if (SubResults[index][Split[1]] == 0) {
+                            // no diff
+                            $("#" + item['RaceID'] + Split[0]).text("\u00A0") // print an empty diff
+                        } else {
+                            MyDiff = SecsToTime(SubResults[index][Split[1]] - SubResults[0][Split[1]]) // diff: current - 1st - split[1] = 'TmSplit1Sec'
+                            if (MyDiff[0] == "-") {
+                                $("#" + item['RaceID'] + Split[0]).text("" + ShortestNotedTime(MyDiff)) // negative, no minus
+                            } else {
+                                $("#" + item['RaceID'] + Split[0]).text("+" + ShortestNotedTime(MyDiff)) // positive
+                            }
+                        }
+                    })
+
+                    if (gLapRace) {
+                        SubResults[index]['Laps'].forEach(function(Lap, LapIndex) {  // Go through all laps in current row
+                            if (LapIndex == 0) {
+                                // skip lap 0, that's the start time
+                            } else {
+                                LapNumber = Lap['LapNumber']
+
+                                 if (typeof SubResults[0]['Laps'][LapNumber] !== 'undefined') {
+                                     myDiff = SecsToTime(Lap['LapTimeSec'] - SubResults[0]['Laps'][LapNumber]['LapTimeSec']) // compare with winner in SubResults
+                                 } else {
+                                     myDiff = "";
+                                 }
+                                // console.log("Row:", index+1, "Lap:", LapNumber, "Secs:", Lap['LapTimeSec'], "myDiff:", myDiff)
+                                if (myDiff[0] == "-") {
+                                    $("#" + item['RaceID'] + "_lapdiff_" + LapNumber).text("" + ShortestNotedTime(myDiff)) // negative, no minus
+                                } else if (myDiff == "") { // no diff
+                                    $("#" + item['RaceID'] + "_lapdiff_" + LapNumber).text("") // none
+                                } else {
+                                    $("#" + item['RaceID'] + "_lapdiff_" + LapNumber).text("+" + ShortestNotedTime(myDiff)) // positive
+                                }
+                            }
+                        })
+                    }
+
+                }
+            })
+
+        })
+    }
+
+    function HighlightSelectedSplit() {
+
+        $('#sortSplit_1, #sortSplit_2, #sortSplit_3, #sortSplit_4, #sortSplit_5, #sortResult, #sortHandicap').removeClass("ColumnHeaderHot");
+        $('.ColumnSplit_1, .ColumnSplit_2, .ColumnSplit_3, .ColumnSplit_4, .ColumnSplit_5, .ColumnResult, .ColumnResultsHandicap').removeClass("ColumnHot");
+
+        switch(gRankBy) {
+            case 1:
+                $('#sortSplit_1').addClass("ColumnHeaderHot");
+                $('.ColumnSplit_1').addClass("ColumnHot");
+                break;
+            case 2:
+                $('#sortSplit_2').addClass("ColumnHeaderHot");
+                $('.ColumnSplit_2').addClass("ColumnHot");
+                break;
+            case 3:
+                $('#sortSplit_3').addClass("ColumnHeaderHot");
+                $('.ColumnSplit_3').addClass("ColumnHot");
+                break;
+            case 4:
+                $('#sortSplit_4').addClass("ColumnHeaderHot");
+                $('.ColumnSplit_4').addClass("ColumnHot");
+                break;
+            case 5:
+                $('#sortSplit_5').addClass("ColumnHeaderHot");
+                $('.ColumnSplit_5').addClass("ColumnHot");
+                break;
+            case 6:
+                $('#sortResult').addClass("ColumnHeaderHot");
+                $('.ColumnResult').addClass("ColumnHot");
+                break;
+            case 7:
+                $('#sortHandicap').addClass("ColumnHeaderHot");
+                $('.ColumnResultsHandicap').addClass("ColumnHot");
+                break;
+        }
+    }
+
+    function UpdateLapHeaderAndFields() {
+        if (!gLapRace) {
+            return // only run when lap race
+        }
+
+        $(".ColumnLap, .ColumnLapHeader").remove() // clear all lap columns first
+
+        // add lap headers to the view
+        if (gHasCustomLaps) { // draw custom lap headers
+            AllCustomLapNamesAndDistances.forEach(function(LapNameAndDistance, index) {
+                $('.FlRowHeader').append('<div id="lapnumber_' + (index+1) + '" class="FlColumn FlColThreeQuarter RightAlignText ColumnLapHeader Type_darkblue_10_bold">' + LapNameAndDistance["LapName"] + '</div>') // add name and Bib // clear
+            })
+        } else { // draw numbered lap headers
+            let maxlapcount = 0;
+            AllResults.forEach(function(SingleResult, index) {
+                 if (SingleResult['Laps'].length > maxlapcount) {
+                     maxlapcount = SingleResult['Laps'].length-1; // get max number of laps in results
+                 }
+            })
+            gLapCount = maxlapcount // set global to track # laps
+
+            for (let i=1; i<=gLapCount; i++) {
+                $('.FlRowHeader').append('<div id="lapnumber_' + i + '" class="FlColumn FlColThreeQuarter RightAlignText ColumnLapHeader Type_darkblue_10_bold">Lap ' + i + '</div>') // add name and Bib // clear
+            }
+        }
+
+
+        AllResults.forEach(function(Result){
+            // draw placeholders with id's in #racelist
+            lapcells = ""
+            for (let k=1; k<=gLapCount; k++) {
+                lapcells += '<div class="FlColumn FlColThreeQuarter ColumnLap"><div class="StackedTimes"><div id="' + Result['RaceID'] + '_lap_' + k + '" class="Type_darkblue_10">-</div><div id="' + Result['RaceID'] + '_lapdiff_' + k + '" class="Type_blue_8 ResultDetailsShowHide">\u00A0</div></div></div>'
+            }
+            $("#row_" + Result['RaceID']).append(lapcells)
+        })
+
+
+    }
+
+    function ShowAllLapResults(myID) {
+
+        RowData = AllResults.find(function (item) {
+            return item.RaceID === myID;
+        });
+        running_content = ""
+        other_content = ""; // html containers
+        running_total = other_total = 0;
+        flag_running = false; // determine wether to display top section or not
+        running = false; // flag per row
+        AllLapStatsBars = []
+
+        // find max lap time for bar chart scale (single global value so all bars stay comparable)
+        // Use a percentile of the actual lap distribution instead of a fixed ceiling: a few
+        // blown-out laps (missed punches, timer left running) are all well under any sane fixed
+        // cap, so they would otherwise stretch the shared scale and collapse every normal bar to
+        // a sliver. Laps above the percentile simply fill the full bar in ScaleStatBars().
+        const scale_percentile = 0.95;
+        const sorted_laptimes = AllResults
+            .flatMap(result => result.Laps.map(lap => lap.LapTimeSec))
+            .filter(time => time > 0) // drop start entries and empty laps
+            .sort(function(a, b) { return a - b; });
+
+        let max_laptime = 0;
+        if (sorted_laptimes.length > 0) {
+            let percentile_index = Math.ceil(scale_percentile * sorted_laptimes.length) - 1;
+            if (percentile_index < 0) { percentile_index = 0; }
+            max_laptime = sorted_laptimes[percentile_index];
+        }
+
+        // header with participant data
+        header = '<div class="FlRow">';
+            if (ShowBib) {
+                header += '<div class="HorizontalSpacerHalf BibBorder">' + RowData['Bib'] + '</div>'
+                window.location.hash = "#" + RowData['Bib'] // update URL in address bar
+            }
+            header += '<div class="Type_black_12">' + RowData['Name'] + '</div>';
+            header += '<div class="Type_blue_12">' + ShortestNotedTime(SecsToTime(RowData['TmResultSec'])) + '</div>';
+        header += '</div>';
+        if (ShowCat || ShowClub) {
+            header += '<div class="FlRow Type_grey_8">';
+                if (ShowCat) { header += '<div class="Type_grey_8">' + RowData['Cat'] + '</div>'; }
+                if (ShowCat && ShowClub) { header += '<div class="Type_grey_8">&middot;</div>'; }
+                if (ShowClub) { header += '<div class="Type_grey_8">' + RowData['Club'] + '</div>'; }
+            header += '</div>';
+        }
+
+        // iterate all laps for participant
+        RowData['Laps'].forEach(function(lap, index) {
+            if (index == 0) { return; } // skip start time entry
+
+            // Get and set the statistics for this lap
+            // Determine total (for average), min and max lap times
+            this_lap_all = this_lap_max =  0;
+            this_lap_min = 10000;
+            all_counter = 0;
+            AllResults.forEach(function(participant, i) {
+                if (participant["Laps"][index] == undefined) { return; } // skip if no value
+
+                // else, get the min and max lap values
+                if (participant["Laps"][index]["LapTimeSec"] > this_lap_max) { // set this_lap_max
+                    this_lap_max = participant["Laps"][index]["LapTimeSec"]
+                }
+                if (participant["Laps"][index]["LapTimeSec"] < this_lap_min) { // set this_lap_max
+                    this_lap_min = participant["Laps"][index]["LapTimeSec"]
+                }
+                this_lap_all += participant["Laps"][index]["LapTimeSec"] // summarize total time for this lap to get the average
+                all_counter++
+            })
+
+            AllLapStatsBars.push({row:index, laptime:lap['LapTimeSec'], min:this_lap_min, mid:(this_lap_all/all_counter), max:this_lap_max, maxall:max_laptime})
+
+            // running or workout row?
+            if (gHasCustomLaps) {
+                if (AllCustomLapNamesAndDistances[index-1]["LapIcon"] == 1) { // running
+                    running = true;
+                    flag_running = true
+                } else { // workout
+                    running = false;
+                }
+            }
+
+
+            lap_row = '<div class="FlRow">';
+                if (gHasCustomLaps) {
+                    lap_row += '<div class="FlColLapStatsIcon"><img src="img/icon_fit_' + AllCustomLapNamesAndDistances[index-1]["LapIconName"] + '.svg" width="42px"></div>';
+                    lap_row += '<div class="Type_black_10 FlColLapStatsName LeftAlignText">' + AllCustomLapNamesAndDistances[index-1]["LapName"] + '</div>';
+                } else {
+                    lap_row += '<div class="FlColLapStatsIcon"><img src="img/icon_fit_point.svg" width="42px"></div>';
+                    lap_row += '<div class="Type_black_10 FlColLapStatsName LeftAlignText">Lap ' + lap['LapNumber'] + '</div>';
+                }
+                if (running) { // blue
+                    lap_row += '<div class="Type_blue_10 FlColLapStatsTime RightAlignText">' + ShortestNotedTime(SecsToTime(lap['LapTimeSec'])) + '</div>';
+                    lap_row += '<div class="FlColLapStatsBar">'
+
+                        lap_row += '<div class="">'
+                            lap_row += '<div class="SeekBarBack">'
+                            lap_row += '<img class="SeekBarEnd" src="img/bar_blue_left.svg">'
+                            lap_row += '<div class="SeekBarStretch Back" style="background-image: url(img/bar_blue_stretch.svg);"></div>'
+                            lap_row += '<img class="SeekBarEnd" src="img/bar_blue_right.svg">'
+                        lap_row += '</div>'
+                        lap_row += '<div class="SeekBarFront">'
+                            lap_row += '<img class="BarEnd" src="img/bar_blue_left.svg">'
+                            lap_row += '<div id="lapstats_' + index + '" class="SeekBarStretch Front" style="background-image: url(img/bar_blue_stretch.svg);"></div>'
+                            lap_row += '<img class="BarEnd" src="img/bar_blue_right.svg">'
+                        lap_row += '</div>'
+
+                    lap_row += '<div id="bardot_' + index + '_1" class="ToolTip StatsBar"><span class="ToolTipText">Fastest: ' + ShortestNotedTime(SecsToTime(this_lap_min)) + '</span><img class="BarDot" src="img/bar_dot_blue.svg"></div>';
+                    lap_row += '<div id="bardot_' + index + '_2" class="ToolTip StatsBar"><span class="ToolTipText">Average: ' + ShortestNotedTime(SecsToTime(this_lap_all/all_counter)) + '</span><img class="BarDot" src="img/bar_dot_blue.svg"></div>';
+                    lap_row += '<div id="bardot_' + index + '_3" class="ToolTip StatsBar"><span class="ToolTipText">Slowest: ' + ShortestNotedTime(SecsToTime(this_lap_max)) + '</span><img class="BarDot" src="img/bar_dot_blue.svg"></div>';
+
+                } else { // orange
+                    lap_row += '<div class="Type_orange_10 FlColLapStatsTime RightAlignText">' + ShortestNotedTime(SecsToTime(lap['LapTimeSec'])) + '</div>';
+                    lap_row += '<div class="FlColLapStatsBar">'
+
+                        lap_row += '<div class="">'
+                            lap_row += '<div class="SeekBarBack">'
+                            lap_row += '<img class="SeekBarEnd" src="img/bar_orange_left.svg">'
+                            lap_row += '<div class="SeekBarStretch Back" style="background-image: url(img/bar_orange_stretch.svg);"></div>'
+                            lap_row += '<img class="SeekBarEnd" src="img/bar_orange_right.svg">'
+                        lap_row += '</div>'
+                            lap_row += '<div class="SeekBarFront">'
+                            lap_row += '<img class="BarEnd" src="img/bar_orange_left.svg">'
+                            lap_row += '<div id="lapstats_' + index + '" class="SeekBarStretch Front" style="background-image: url(img/bar_orange_stretch.svg);"></div>'
+                            lap_row += '<img class="BarEnd" src="img/bar_orange_right.svg">'
+                        lap_row += '</div>'
+
+                        lap_row += '<div id="bardot_' + index + '_1" class="ToolTip StatsBar"><span class="ToolTipText">Fastest: ' + ShortestNotedTime(SecsToTime(this_lap_min)) + '</span><img class="BarDot" src="img/bar_dot_orange.svg"></div>';
+                        lap_row += '<div id="bardot_' + index + '_2" class="ToolTip StatsBar"><span class="ToolTipText">Average: ' + ShortestNotedTime(SecsToTime(this_lap_all/all_counter)) + '</span><img class="BarDot" src="img/bar_dot_orange.svg"></div>';
+                        lap_row += '<div id="bardot_' + index + '_3" class="ToolTip StatsBar"><span class="ToolTipText">Slowest: ' + ShortestNotedTime(SecsToTime(this_lap_max)) + '</span><img class="BarDot" src="img/bar_dot_orange.svg"></div>';
+                }
+                lap_row += '</div></div>';
+            lap_row += '</div>';
+
+            if (running) { // running
+                running_content += lap_row
+                running_total += lap['LapTimeSec']
+            } else { // workout
+                other_content += lap_row
+                other_total += lap['LapTimeSec']
+            }
+        })
+
+        // total and average
+        if (flag_running) {
+            running_content += '<div class="FlRow">'
+                running_content += '<div class="FlColLapStatsIcon"></div>'
+                running_content += '<div class="Type_blue_10 FlColLapStatsName RightAlignText">Result running:</div>';
+                running_content += '<div class="Type_blue_10_bold FlColLapStatsTime RightAlignText">' + ShortestNotedTime(SecsToTime(running_total)) + '</div>';
+                running_content += '<div class="FlColLapStatsBar"></div>'
+            running_content += '</div>'
+
+            spacer = '<div class="VerticalSpacer"></div>'
+        } else {
+            running_content = "";
+            spacer = "";
+        }
+
+        other_content += '<div class="FlRow">'
+            other_content += '<div class="FlColLapStatsIcon"></div>'
+            other_content += '<div class="Type_orange_10 FlColLapStatsName RightAlignText">Result:</div>';
+            other_content += '<div class="Type_orange_10_bold FlColLapStatsTime RightAlignText">' + ShortestNotedTime(SecsToTime(other_total)) + '</div>';
+            other_content += '<div class="FlColLapStatsBar"></div>'
+        other_content += '</div>'
+
+
+        $("#lap_header").html(header)
+        $("#lap_results").html('<div class="VerticalSpacer"></div>' + running_content + spacer + other_content)
+
+        dialog_laps.showModal();
+        setTimeout(function() {
+            ScaleStatBars()
+        }, 100);
+
+    }
+
+    function ScaleStatBars() {
+        // determine scale
+        bar_width = $(".FlColLapStatsBar").width()-8;
+
+        AllLapStatsBars.forEach(function(lap) {
+            scale = bar_width/lap["maxall"];
+
+            // bar fill: this lap's time, capped at the shared scale max so laps above the
+            // percentile cutoff fill the full bar instead of overflowing
+            let bar_length = scale * lap["laptime"];
+            if (bar_length > bar_width) { bar_length = bar_width; }
+            $("#lapstats_" + lap["row"]).width(Math.floor(bar_length))
+
+            // plot fastest / average / slowest dots, clamped to the track so a per-lap
+            // outlier (e.g. a missed punch) doesn't push its dot off the right edge
+            myLeft = 2;
+            let min_left = myLeft + (scale * lap["min"]);
+            let mid_left = myLeft + (scale * lap["mid"]);
+            let max_left = myLeft + (scale * lap["max"]) - 2;
+            if (min_left > bar_width) { min_left = bar_width; }
+            if (mid_left > bar_width) { mid_left = bar_width; }
+            if (max_left > bar_width) { max_left = bar_width; }
+            $("#bardot_" + lap["row"] + "_1").css('left', min_left)
+            $("#bardot_" + lap["row"] + "_2").css('left', mid_left)
+            $("#bardot_" + lap["row"] + "_3").css('left', max_left)
+
+        })
+    }
+
+    function UpdateListNotes(){
+
+        $("#headerlist").append($(".ListGroupHeader.Note")) // hide/move all notes to header list
+
+        if (gGroupByWCGF == 1) { // wave notes
+            $(".ListGroupHeader.Note.wave").each(function(){
+                insertafter = $(this).attr('id').split("_").pop()
+                if (insertafter == 0) {
+                    $(".ListHeader").first().before($(this))
+                } else {
+                    if ($(".ListHeader").eq(insertafter).length > 0) { // does list header exist?
+                        $(".ListHeader").eq(insertafter).before($(this))
+                    } else {
+                        $(".FlRow.Last").before($(this))
+                    }
+                }
+            })
+        } else if (gGroupByWCGF == 2) { // category notes
+            $(".ListGroupHeader.Note.category").each(function(){
+                insertafter = $(this).attr('id').split("_").pop()
+                if (insertafter == 0) {
+                    $(".ListHeader").first().before($(this))
+                } else {
+                    if ($(".ListHeader").eq(insertafter).length > 0) { // does list header exist?
+                        $(".ListHeader").eq(insertafter).before($(this))
+                    } else {
+                        $(".FlRow.Last").before($(this))
+                    }
+                }
+            })
+        }
+    }
+
+    function AddTimeToResults(data) {
+        // console.log(data)
+        // find raceID in AllResults in to group based subsets
+        index = AllResults.findIndex(function(SingleResult) { // filter all results per group ID, e.g. CategoryID
+            return SingleResult['RaceID'] == data['RaceID']
+        })
+        AllResults[index]['TmSplit' + data['Split']] = data['Time'] // e.g. 'TmSplit2'
+        AllResults[index]['TmSplit' + data['Split'] + 'dc'] = data['DeciSeconds']
+        AllResults[index]['TmSplit' + data['Split'] + 'Sec'] = TimeToSecs(data['Time'] + "." + data['DeciSeconds'])
+
+        // add (or replace) lap data
+        lapdata = {"LapNumber":  data['Lap'], "LapTime": data['Time'], "LapTimedc": data['DeciSeconds'], "LapTimeSec":0}; // LapTimeSec will get updated in CalcAllRows()
+
+        // check in AllResults[index]['Laps'] if a lap with this lapnumber exist
+        lapindex = AllResults[index]['Laps'].findIndex(subarray => subarray['LapNumber'] == data['Lap'])
+        // console.log("lapindex in AllResults[index]['Laps']:", lapindex)
+        if (lapindex != -1) {
+            // replace (update) or remove (in case of undo)
+            if (data['Time'] == "00:00:00" && data['DeciSeconds'] == "0" ) {
+                // undo, remove lap
+                AllResults[index]['Laps'].splice(lapindex, 1);
+            } else {
+                // update lap
+                AllResults[index]['Laps'][lapindex] = lapdata
+            }
+        } else { // add lap
+            AllResults[index]['Laps'].push(lapdata)
+        }
+
+        myrowid = "#row_" + data['RaceID'];
+        $(myrowid).next("Divider").hide() // hide divider below row
+        $(myrowid)
+            .css("background-color", "transparent")
+            .removeClass("FadeOutBackGround")
+            .slideUp(300, function() {
+                shortpause = setTimeout(function () {
+                    if (data['Lap'] > gLapCount) { // check if enough columns are visible?
+                        gLapCount = data['Lap']
+                        UpdateLapHeaderAndFields() // if not recalc the main view
+                        CalcAllRows(data['RaceID'])
+                    } else {
+                        CalcAllRows(data['RaceID']); // just update calculation (and pass RaceID for reappearance animation)
+                    }
+                }, 200);
+        });
+
+    }
+
+    function AddMassStartTimeToResults(data) {
+
+        TimeinSecs = TimeToSecs(data['Time'] + "." + data['DeciSeconds'])
+
+        AllResults.forEach(function (Result, index) {
+            Result['TmSplit1'] = data['Time'];
+            Result['TmSplit1dc'] = data['DeciSeconds'];
+            Result['TmSplit1Sec'] = TimeinSecs;
+
+            if (gLapRace) { // add lap 0 to Lap array
+                Result['Laps'][0] = {"LapNumber":0, "Laptime":data['Time'], "LapTimedc":data['DeciSeconds'], "LapTimeSec":0}
+            }
+        })
+
+        CalcAllRows()
+    }
+
+    function AddWaveStartTimeToResults(data) {
+
+        TimeinSecs = TimeToSecs(data['Time'] + "." + data['DeciSeconds'])
+
+        AllResults.forEach(function (Result, index) {
+            if (Result['WaveID'] == data['Wave'] ) {
+                Result['TmSplit1'] = data['Time'];
+                Result['TmSplit1dc'] = data['DeciSeconds'];
+                Result['TmSplit1Sec'] = TimeinSecs;
+
+                if (gLapRace) { // add lap 0 to Lap array
+                    Result['Laps'][0] = {"LapNumber":0, "LapTime":data['Time'], "LapTimedc":data['DeciSeconds'], "LapTimeSec":0}
+                }
+            }
+        })
+
+        CalcAllRows()
+    }
+
+    function UpdateRecentFinishersList() {
+        // only run when this when dialog is open
+        if (dialog_recentfinishers.open == false) {
+            return
+        }
+
+        // get sorted list of finished participants
+        RecentFinishers=[]
+        AllResults.forEach(function(finisher,index){
+            if (gLapRace) {
+                if (finisher.Laps.length == (gLapCount + 1)) {
+                    RecentFinishers.push({
+                        LastLapTimeInSecs: TimeToSecs(finisher.Laps[gLapCount].LapTime),
+                        RaceID: finisher.RaceID
+                    });
+                }
+            } else {
+                if (finisher.TmSplit5 != "00:00:00" && finisher.TmResultSec > 0) {
+                    RecentFinishers.push({
+                        LastLapTimeInSecs: TimeToSecs(finisher.TmSplit5 + "." + finisher.TmSplit5dc),
+                        RaceID: finisher.RaceID
+                    });
+                }
+            }
+        })
+        RecentFinishers.sort((a, b) => b.LastLapTimeInSecs - a.LastLapTimeInSecs);
+        console.table(RecentFinishers);
+
+       $("#recentfinishers").empty()
+
+        RecentFinishers.forEach(function(finisher, index){
+            new_line="";
+
+            const rank = $('#' + finisher.RaceID + '_RankBadge span').first().text();      // "1"
+            const suffix = $('#' + finisher.RaceID + '_RankBadge .RankingBadgeSup').text(); // "st"
+
+            myresult = AllResults.find(function (item) { // name and results from AllResults
+                return item.RaceID === finisher.RaceID;
+            });
+
+            new_line += "<div class='LinkBar' style='gap:2vw;'>";
+                new_line += "<div class='RaceBadge'>";
+                    new_line += "<span class='RaceBadgeNrList'>" + rank + "</span>";
+                    new_line += "<span class='RaceBadgeTextList'>" + suffix + "</span>";
+                new_line += "</div>";
+                new_line += "<div class='RaceNameList'>";
+                    new_line += myresult.Name;
+                    var subParts = [];
+                    if (myresult.Cat)  { subParts.push(myresult.Cat); }
+                    if (myresult.Club) { subParts.push(myresult.Club); }
+                    if (subParts.length > 0) {
+                        new_line += "<div class='RaceSubInfo'>" + subParts.join(' · ') + "</div>";
+                    }
+                new_line += "</div>";
+            new_line += "</div>";
+            new_line += "<div class='RaceResultList'>" + ShortestNotedTime(SecsToTime(myresult.TmResultSec)) + "</div>";
+
+            const wrapper = $('<div class="DialogResultRow RecentFinishers"></div>');
+            wrapper.append(new_line);
+            $("#recentfinishers").append(wrapper)
+        })
+    }
+
+
+    function CalcSpeed(ResultInSeconds, ResultDistance, Unit) {
+
+        ResultDistance = parseFloat(ResultDistance.toString().replace(',', '.'));
+
+        if (ResultInSeconds == 0 || ResultDistance == 0) {
+            return "-";
+        }
+
+        switch (SportType) {
+            case '3': // running
+            case '8': // trail
+                if (Unit == "m") {
+                    multiplier = 1000;
+                } else {
+                    multiplier = 1;
+                }
+                SecondsPerUnit = multiplier * (ResultInSeconds/ResultDistance);
+                return(ShortestNotedTime(SecsToTime(SecondsPerUnit)))
+                break;
+
+            case '4': // rowing
+                if (Unit == "mi") { // speed in mph
+                    Speed = ResultDistance/(ResultInSeconds/3600)
+                    RoundedSpeed = Speed.toFixed(2)
+                    return(RoundedSpeed);
+                } else { // speed in time/500m
+                    if (Unit == "m") {
+                        multiplier = 500
+                    } else {
+                        multiplier = 0.5
+                    }
+                    SecondsPer500 = multiplier * (ResultInSeconds/ResultDistance)
+                    return(ShortestNotedTime(SecsToTime(SecondsPer500)));
+                }
+                break;
+
+            case '11': // swimming
+                if (Unit == "mi") { // speed in /100yd
+                    SecondsPer100yd = 100/1760 * (ResultInSeconds/ResultDistance) // 1760 yd = 1 mile
+                    return (ShortestNotedTime(SecsToTime(SecondsPer100yd)))
+                } else {
+                    if (Unit == "m") {
+                        multiplier = 100
+                    } else {
+                        multiplier = 0.1
+                    }
+                    SecondsPer100m = multiplier * (ResultInSeconds/ResultDistance)
+                    return (ShortestNotedTime(SecsToTime(SecondsPer100m)))
+                }
+                break;
+
+            default:
+                if (Unit == "mi") { // speed in mph
+                    Speed = ResultDistance/(ResultInSeconds/3600)
+                    RoundedSpeed = Speed.toFixed(2)
+                    return(RoundedSpeed);
+                } else { // speed in km/h
+                    if (Unit == "m") {
+                        multiplier = 1000
+                    } else {
+                        multiplier = 1
+                    }
+                    Speed = ResultDistance/(ResultInSeconds/3600) / multiplier
+                    RoundedSpeed = Speed.toFixed(2)
+                    return(RoundedSpeed);
+                }
+                break;
+        }
+    }
+
+    function TimeDiff(StartTime, EndTime) {  // calculates time difference for times in hh:mm:ss.d string format
+
+        start = 3600 * StartTime.substring(0, 2) + 60 * StartTime.substring(3, 5) + 1 * StartTime.substring(6, 8) + 0.1 * StartTime.substring(9, 10);
+        end = 3600 * EndTime.substring(0, 2) + 60 * EndTime.substring(3, 5) + 1 * EndTime.substring(6, 8) + 0.1 * EndTime.substring(9, 10);
+
+        timediff = end - start;
+        if (timediff < 0) {
+            timediff = timediff + (24 * 3600)
+        } // if start time is in future then correct
+        timediff = Math.round(timediff * 10) / 10;
+
+        hours = Math.floor(timediff / 3600);
+        mins = Math.floor((timediff - hours * 3600) / 60);
+        secs = (timediff - (hours * 3600 + mins * 60) / 1);
+        secs = Math.round(secs * 10) / 10;
+
+        var stringTime = (hours < 10 ? "0" + hours : hours) + ":" + (mins < 10 ? "0" + mins : mins) + ":" + (secs < 10 ? "0" + secs : secs);
+        if (stringTime.length == 8) {
+            stringTime += ".0"
+        } // decimal drop restored
+        return (stringTime); // return string
+    }
+
+    function SecsToTime(mysecs) {
+
+        // Check if the input is negative
+        let isNegative = false;
+        if (mysecs < 0) {
+            isNegative = true;
+            mysecs = Math.abs(mysecs);
+        }
+
+        // Separate integer and decimal parts
+        const intSeconds = Math.floor(mysecs);  // Integer part of seconds
+        const decimalPart = mysecs - intSeconds;  // Decimal part of seconds
+
+        // Calculate hours, minutes, and seconds
+        let hours = Math.floor(intSeconds / 3600);
+        let minutes = Math.floor((intSeconds % 3600) / 60);
+        let secs = intSeconds % 60;
+
+        // Format the decimal part to one decimal place
+        let decimalStr = decimalPart.toFixed(1);
+        if (decimalStr.substring(0,1) == 1) { // correct when decimal rounded up to 1.0
+            secs++
+            if (secs==60) {
+                secs = 0
+                minutes++
+                if (minutes == 60) {
+                    minutes = 0
+                    hours++
+                }
+            }
+        }
+
+
+        decimalStr = decimalStr.substring(1); // Remove leading '0' to get only ".d"
+
+        // Format hours, minutes, and seconds as two-digit numbers
+        let hoursStr = hours.toString();
+        if (hoursStr.length < 2) {
+            hoursStr = "0" + hoursStr;
+        }
+
+        let minutesStr = minutes.toString();
+        if (minutesStr.length < 2) {
+            minutesStr = "0" + minutesStr;
+        }
+
+        let secondsStr = secs.toString();
+        if (secondsStr.length < 2) {
+            secondsStr = "0" + secondsStr;
+        }
+
+
+        // Combine parts into the final format
+        let formattedTime = hoursStr + ":" + minutesStr + ":" + secondsStr + decimalStr;
+
+        // If the original input was negative, prepend a "-" sign
+        if (isNegative) {
+            formattedTime = "-" + formattedTime;
+        }
+        
+        return formattedTime;
+    }
+
+    function TimeToSecs(hhmmssd) {
+            // Split the time string into hours, minutes, and seconds
+            const [hours, minutes, seconds] = hhmmssd.split(':');
+            const [sec, decimal] = seconds.split('.');
+            const totalSeconds = (parseInt(hours) * 3600) + (parseInt(minutes) * 60) + parseInt(sec) + (decimal ? parseFloat('0.' + decimal) : 0);
+
+            return totalSeconds;
+    }
+
+    function ShortestNotedTime(mytime) {
+        if (!mytime) {
+            return mytime;
+        }
+
+        // Handle the negative sign separately
+        let sign = '';
+        let timePart = mytime;
+        if (mytime.startsWith('-')) {
+            sign = '-';
+            timePart = mytime.substring(1);
+        }
+
+        // Loop through the time part to find the first significant digit
+        for (let i = 0; i < timePart.length; i++) {
+            const char = timePart[i];
+
+            if (char >= '1' && char <= '9') {
+                // If the digit is after a decimal point, return 0.x
+                if (i > 0 && timePart[i - 1] === '.') {
+                    return sign + '0.' + timePart.substring(i);
+                }
+                return sign + timePart.substring(i);
+            }
+        }
+
+        // All zeros
+        return mytime.includes('.') ? '0.0' : '0';
+    }
+
+    function HideMenus() {
+        $("#menu_views").fadeOut('fast');
+        $("#menu_grouping").fadeOut('fast');
+        $("#menu_view_switches").fadeOut('fast');
+        $("#weather_widget_menu").fadeOut('fast');
+        $("#progression_wave_menu").fadeOut('fast');
+    }
+
+    function SetListViewWidth() {
+        header_width=0
+        $(".FlRowHeader").find('.FlColumn:visible').each(function(){ // find visible columns in header
+            header_width += $(this).outerWidth(true)+8 // gap
+        })
+        $("#racelist, .DottedLineDark").outerWidth(header_width-8)
+    }
+
+    function ScrollDown() {
+        window.scrollBy(0, 1);
+        scrolldelay = setTimeout('ScrollDown()', 40);
+    }
+
+    function StopScrollDown() {
+        clearTimeout(scrolldelay);
+    }
+
+    function WebsocketSync(event,data){
+        switch(event){
+            case "add_time":
+                if (data["RaceID"]==0){
+                    console.log(data);
+                } else{
+                    AddTimeToResults(data)
+                }
+                break;
+            case "add_masstime":
+                if (data["RaceID"]==0){
+                    console.log(data);
+                } else{
+                    AddMassStartTimeToResults(data)
+                }
+                break;
+            case "add_wavetime":
+                if (data["RaceID"]==0){
+                    console.log(data);
+                } else{
+                    AddWaveStartTimeToResults(data)
+                }
+                break;
+            case "reset_page":
+                if (data["RaceID"]==0){
+                    console.log(data);
+                } else{
+                    location.reload()
+                }
+                break;
+            case "reload_page":
+                if (data["RaceID"]==0){
+                    console.log(data);
+                } else{
+                    location.reload()
+                }
+                break;
+            case "communicate":
+                console.log("communicate");
+                break;
+            default:
+        }
+     }
+
+    function Synch(aParam) {	 // Dummy functie needed by webscket.js
+        console.log("Synch")
+    }
+
+    async function ExportExcel() {
+        try {
+            await LoadXLSXSheetJS();
+
+            StructureDataOutput()
+
+            const ws = XLSX.utils.aoa_to_sheet(export_results);
+            ConvertToExcelTimes(ws) // all times in Excel DateTime format
+            AutoFitColumns(ws, export_results); // dynamic column widths
+
+            const ws2 = XLSX.utils.aoa_to_sheet(export_timing);
+            ConvertToExcelTimes(ws2) // all times in Excel DateTime format
+            AutoFitColumns(ws2, export_timing); // dynamic column widths
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Results");
+            XLSX.utils.book_append_sheet(wb, ws2, "Timing data");
+            FileName = "Results_" + "Aquathon 18th June" + ".xlsx"
+            FileNameNoSpaces = FileName.replace(/ /g, "_");
+            XLSX.writeFile(wb, FileNameNoSpaces);
+
+        } catch (error) {
+            console.error("Export failed:", error);
+        }
+    }
+
+    function StructureDataOutput() {
+
+        export_results = [] // clear global array results
+        export_timing = [] // clear global array timing data
+
+        $("#racelist .FlRow").not(".Divider, .FlRowHeader").each(function(){
+            switch (gSplitsOrInterval) {
+                case 0: // intervals
+                    export_results.push(ExtractTextNodes($(this),['ToolTipText', 'RankingBadgeSup', 'DotDivider'])) // exclude some nodes
+                    break;
+                case 1: // splits
+                    export_results.push(ExtractTextNodes($(this),['ToolTipText', 'RankingBadgeSup', 'DotDivider', 'ColumnSplit_5'])) // exclude some nodes, incl last split
+                    break;
+                case 2: // no splits
+                    export_results.push(ExtractTextNodes($(this),['ToolTipText', 'RankingBadgeSup', 'DotDivider', 'ColumnSplit_1', 'ColumnSplit_2', 'ColumnSplit_3', 'ColumnSplit_4', 'ColumnSplit_5'])) // exclude some nodes, incl last split
+            }
+        })
+
+        // include header row results
+        header_row=[]
+        header_row.push('Rank')
+        header_row.push('Name')
+        if (ShowBib) { header_row.push('Bib nr') }
+        if (ShowCat) { header_row.push('Category') }
+        if (ShowClub) { header_row.push('Club') }
+        if (ShowCustom) { header_row.push(CustomLabel) }
+        if (ShowAge) { header_row.push('Age') }
+        if (ShowGender) { header_row.push('Gender') }
+        // splits headers
+        switch (gSplitsOrInterval) {
+            case 0: // intervals
+                for (let i=0; i<SplitsCount; i++) {
+                    header_row.push("↦ " + SplitNames[i+1], "Diff", "Rank")
+                }
+                // when lap race (SplitsCount = 0) don't include finish interval
+                if (!gLapRace) {
+                    header_row.push("↦ " + "Finish", "Diff", "Rank")
+                }
+                break;
+            case 1: // splits
+                for (let i=0; i<SplitsCount; i++) {
+                    header_row.push(SplitNames[i+1], "Diff", "Rank")
+                }
+                break;
+            case 2: // no splits or intervals shown
+        }
+        header_row.push('Result', "Diff", "Rank")
+        if (ShowHandicap) { header_row.push('Result handicap', "Diff", "Rank", "Handicap") }
+        if (gHasPenalties) {
+            header_row.push('Penalty', 'Penalty note')
+        }
+        header_row.push('Speed',"Unit")
+        if (HasExtraInfo == 1) {
+            header_row.push('Extra info')
+        }
+
+        // add optional lap headers
+        if (gLapRace && gHasCustomLaps) {
+            AllCustomLapNamesAndDistances.forEach(function(entry, i){
+                header_row.push(entry['LapName'],"Diff");
+            })
+        } else if (gLapCount && !gHasCustomLaps) {
+            for(let i=1; i<(gLapCount+1); i++) {
+                header_row.push(("Lap " + i),"Diff");
+            }
+        }
+        export_results.unshift(header_row)  // add header row to top of the results array
+
+
+        // filter and concatenate raw timing data for sheet 2
+        AllResults.sort((a, b) => a.Rank - b.Rank); // order results by rank number first
+
+        const timing_filtered = AllResults.map(item => {
+            const { Name, Bib, Club, Cat, WaveName, Age, Gender, Custom, Handicap, Result, Penalty, PenaltyNote } = item;
+
+            // concat time and deci-secs
+            const combineSplit = (time, dc) => {
+                if (!time || time.trim() === "") return "";
+                return `${time}.${dc}`;
+            };
+
+            const splits = {};
+            for (let i=1; i<=4; i++) {
+                splits[SplitNames[i-1]] = combineSplit(item[`TmSplit${i}`], item[`TmSplit${i}dc`]);
+            }
+            splits[SplitNames[4]] = combineSplit(item[`TmSplit${6}`], item[`TmSplit${6}dc`]); // 6 is split 4 8-|
+            splits[SplitNames[5]] = combineSplit(item[`TmSplit${5}`], item[`TmSplit${5}dc`]); // 5 is finish
+
+            const laps = {};
+            if (gHasCustomLaps) {
+                for (let j=0; j<(AllCustomLapNamesAndDistances.length); j++) { // 0-15 in case 16 custom laps
+                    if ((j+1) < item['Laps'].length) { // only read when lap time exists (j+1 as first in laps is start time...
+                        laps[AllCustomLapNamesAndDistances[j]['LapName']] = combineSplit(item['Laps'][j+1]['LapTime'], item['Laps'][j+1]['LapTimedc']);
+                    } else {
+                        laps[AllCustomLapNamesAndDistances[j]['LapName']] = ""; // put in empty
+                    }
+                }
+            } else {
+                for(let j=1; j<(gLapCount+1); j++) {
+                    if (j < item['Laps'].length) { // only read when lap time exists
+                        laps['lap ' + j] = combineSplit(item['Laps'][j]['LapTime'], item['Laps'][j]['LapTimedc']); // only read when lap time exists
+                    } else {
+                        laps['lap ' + j] = ""; // put in empty
+                    }
+                }
+            }
+
+            return { Name, Bib, Club, Cat, WaveName, Age, Gender, Custom, Handicap, ...splits ,Result, Penalty, PenaltyNote, ...laps };
+        });
+
+        export_timing.push(Object.keys(timing_filtered[0]))
+        timing_filtered.forEach(function(entry, i){
+            thisline=[]
+            Object.entries(entry).forEach(([key,value]) => {
+                thisline.push(value)
+            });
+            export_timing.push(thisline)
+        })
+    }
+
+    function LoadXLSXSheetJS() {
+        return new Promise((resolve, reject) => {
+            if (window.XLSX) { return resolve(); }
+
+            const script = document.createElement('script');
+            script.src = 'https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Failed to load SheetJS'));
+            document.head.appendChild(script);
+        });
+    }
+
+    function ExtractTextNodes($element, excludedClasses) {
+        // Extracts all text content from the results view - skipping classes as defined in the function call
+        let results = [];
+
+        $element.contents().each(function () {
+            if (this.nodeType === Node.TEXT_NODE) {
+                const cleanText = this.textContent.replace(/\n/g, ''); // Remove newlines
+                results.push(cleanText);
+            } else if (this.nodeType === Node.ELEMENT_NODE) {
+                const $child = $(this);
+                if ($child.hasClass('ColumnPenalty')) {
+                    // Penalty cell -> always two export columns: the visible 'incl. X sec.' text and the note from the tooltip
+                    const noteText = $child.find('.ToolTipText').text().replace(/\n/g, '').trim();
+                    const $secsOnly = $child.clone();
+                    $secsOnly.find('.ToolTipText').remove(); // drop the note so it doesn't bleed into the seconds column
+                    const secsText = $secsOnly.text().replace(/\n/g, '').trim();
+                    results.push(secsText, noteText);
+                    return; // don't recurse into the penalty cell
+                }
+                const hasExcludedClass = excludedClasses.some(cls => $child.hasClass(cls));
+                if (!hasExcludedClass) {
+                    results = results.concat(ExtractTextNodes($child, excludedClasses));
+                }
+            }
+        });
+        return results;
+    }
+
+    function ConvertToExcelTimes(worksheet) {
+        // Converts time strings ('hh:mm:ss.u') to Excel floating time number
+        Object.keys(worksheet).forEach(cellAddress => {
+            if (cellAddress[0] === '!') return;
+
+            const cell = worksheet[cellAddress];
+
+            if (!cell.s) cell.s = {};
+            cell.s.alignment = {horizontal: 'right', vertical: 'center'};
+
+            if (typeof cell.v === 'string') { // convert 'hh:mm:ss.u' to 's.u' times to Excel time format
+                const timeVal = ParseTimeToExcelNumber(cell.v);
+                if (timeVal !== null) {
+                    cell.v = timeVal;
+                    cell.t = 'n'; // numeric type
+                    cell.z = 'hh:mm:ss.0'; // format
+                }
+                if (cell.v === '-') {
+                    cell.v = undefined; // replace dash with empty
+                }
+            }
+        });
+    }
+
+    function ParseTimeToExcelNumber(timeStr) {
+        const timeRegex = /^(?:(\d{1,2}):)?(?:(\d{1,2}):)?(\d{1,2})\.(\d)$/; //check for all variants of string pattern 'hh:mm:ss.u' to 's.u'
+        const match = timeStr.match(timeRegex);
+        if (!match) return null;
+
+        let hours = 0, minutes = 0, seconds = 0, fraction = 0;
+
+        if (match[1] !== undefined && match[2] !== undefined) {
+            hours = parseInt(match[1], 10);
+            minutes = parseInt(match[2], 10);
+        } else if (match[1] !== undefined) {
+            minutes = parseInt(match[1], 10);
+        }
+
+        seconds = parseInt(match[3], 10);
+        fraction = parseFloat('0.' + match[4]);
+
+        const totalSeconds = hours * 3600 + minutes * 60 + seconds + fraction;
+        return totalSeconds / 86400; // Convert to Excel float time
+    }
+
+    function AutoFitColumns(worksheet, data) {
+        // adjust width of Excel columns based on value length
+        const colWidths = [];
+
+        data.forEach(row => {
+            row.forEach((val, colIndex) => {
+                const str = val == null ? '' : String(val);
+                const len = str.length;
+                colWidths[colIndex] = Math.max(colWidths[colIndex] || 10, len+1); // 6 is min width
+            });
+        });
+
+        worksheet['!cols'] = colWidths.map(w => ({ wch: w }));
+    }
+
+    function ArrayToObject(sourceArray) {
+        const rawKeys = sourceArray[0];
+
+        // Disambiguate duplicate keys
+        const keyCounts = {};
+        const keys = rawKeys.map(key => {
+            if (!keyCounts[key]) {
+                keyCounts[key] = 1;
+                return key;
+            } else {
+                keyCounts[key]++;
+                return `${key}_${keyCounts[key]}`;
+            }
+        });
+
+        const result = [];
+        for (let i = 1; i < sourceArray.length; i++) {
+            const row = sourceArray[i];
+
+            // Section header
+            if (Array.isArray(row) && row.length === 1 && typeof row[0] === 'string') {
+                result.push({ Header: row[0] });
+                continue;
+            }
+
+            // Data row
+            if (Array.isArray(row)) {
+                const item = {};
+                for (let j = 0; j < keys.length; j++) {
+                    item[keys[j]] = j < row.length ? row[j] : null;
+                }
+                result.push(item);
+            }
+        }
+
+        return result;
+    }
+
+    /* weather widget */
+    async function InitWeatherWidget(weatherData) {
+        // weatherData = [date, time, longitude, latitude]
+
+        // check first if event date is today or later
+        const inputDate = new Date(weatherData[0].date.replace(' ', 'T') + 'Z');
+        const today = new Date();
+        inputDate.setUTCHours(0, 0, 0, 0);
+        today.setUTCHours(0, 0, 0, 0);
+
+        const time = new Date(weatherData[1].date.replace(' ', 'T') + 'Z');
+        const hour = String(time.getUTCHours()).padStart(2, '0');
+        const mytime = `${hour}:00`;
+
+        if (inputDate > today) {
+            console.log('weather widget only for past events');
+            return;
+        }
+
+        try {
+            const weather = await GetFullDayWeatherData(weatherData); // fetch and structure data
+            if (!weather) {
+                console.warn('No weather data found');
+                return;
+            }
+            DrawWeatherWidget(weather, mytime);
+
+        } catch (error) {
+            console.error('Weather widget error:', error);
+        }
+    }
+
+    async function GetFullDayWeatherData(weatherData) {
+        const [dateObj, timeObj, longitude, latitude] = weatherData;
+
+        // Convert PHP DateTime JSON → JS Date (UTC)
+        const date = new Date(dateObj.date.replace(' ', 'T') + 'Z');
+        const time = new Date(timeObj.date.replace(' ', 'T') + 'Z');
+
+        // Format date: yyyy-MM-dd (UTC)
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const mydate = `${year}-${month}-${day}`;
+
+        // // Format time: HH:00 (UTC)
+        const hour = String(time.getUTCHours()).padStart(2, '0');
+        const mytime = `${hour}:00`;
+
+        // Build API URL
+        const url = new URL('https://archive-api.open-meteo.com/v1/archive');
+        url.search = new URLSearchParams({
+            latitude: parseFloat(latitude),
+            longitude: parseFloat(longitude),
+            start_date: mydate,
+            end_date: mydate,
+            hourly: 'wind_speed_10m,wind_direction_10m,temperature_2m,weather_code'
+        });
+
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data || !data.hourly) {
+            throw new Error('Invalid API response');
+        }
+
+        // collect output
+        const weather = [];
+        const hourly = data.hourly;
+
+        // determine Bft/Celsius or mph/Fahrenheit
+        const fahrenheitCountries = ['US', 'BS', 'BZ', 'KY', 'PW'];
+        const countryCode = await GetCountryCode();
+        // const countryCode = "US" // for debugging
+
+        if (fahrenheitCountries.includes(countryCode)) {
+            weather.push({ windunit: 'mph', tempunit: '°F'})
+            hourly.time.forEach((time, index) => {
+                weather.push({
+                    time: time.slice(11, 16), // "hh:00"
+                    wind_speed_10m: Math.round((hourly.wind_speed_10m[index]) * 0.621371),
+                    wind_direction_10m: hourly.wind_direction_10m[index],
+                    temperature_2m: Math.round((hourly.temperature_2m[index] * 9/5) + 32),
+                    weather_code: hourly.weather_code[index]
+                });
+            });
+        } else {
+            weather.push({ windunit: 'Bft', tempunit: '°C'})
+            hourly.time.forEach((time, index) => {
+                weather.push({
+                    time: time.slice(11, 16), // "hh:00"
+                    wind_speed_10m: KmhToBft(hourly.wind_speed_10m[index]),
+                    wind_direction_10m: hourly.wind_direction_10m[index],
+                    temperature_2m: Math.round(hourly.temperature_2m[index]),
+                    weather_code: hourly.weather_code[index]
+                });
+            });
+        }
+
+        return(weather);
+    }
+
+    async function GetCountryCode() {
+        try {
+            const res = await fetch("https://ipwho.is/");
+            const data = await res.json();
+            // console.log("Country code", data.country_code)
+            return data.country_code; // e.g. "US", "DE"
+        } catch (err) {
+            console.error(err);
+            return null;
+        }
+    }
+
+    function KmhToBft(kmh) {
+        if (kmh <= 1) return 0;
+        else if (kmh <= 5) return 1;
+        else if (kmh <= 11) return 2;
+        else if (kmh <= 19) return 3;
+        else if (kmh <= 28) return 4;
+        else if (kmh <= 38) return 5;
+        else if (kmh <= 49) return 6;
+        else if (kmh <= 61) return 7;
+        else if (kmh <= 74) return 8;
+        else if (kmh <= 88) return 9;
+        else if (kmh <= 102) return 10;
+        else if (kmh <= 117) return 11;
+        else return 12;
+    }
+
+    function WeatherCodeToIcon(code) {
+        // WMO weather interpretation codes → icon in img folder
+        if (code === 0 || code === 1) return 'img/img_icon_weather_clear.svg';
+        else if (code === 2) return 'img/img_icon_weather_partlycloudy.svg';
+        else if (code === 3) return 'img/img_icon_weather_cloudy.svg';
+        else if (code === 45 || code === 48) return 'img/img_icon_weather_fog.svg';
+        else if (code >= 71 && code <= 77) return 'img/img_icon_weather_snow.svg';
+        else if (code === 85 || code === 86) return 'img/img_icon_weather_snow.svg';
+        else if (code >= 95) return 'img/img_icon_weather_thunder.svg';
+        else return 'img/img_icon_weather_rain.svg'; // drizzle, rain, freezing rain, showers (51-67, 80-82)
+    }
+
+    function FindEarliestAndLatestFromAllResults() {
+
+        let earliest = null;
+        let latest = null;
+
+        AllResults.forEach(function (result) {
+            Object.values(result).forEach(function (value) {
+                if (
+                    typeof value === "string" &&
+                    /^\d{2}:\d{2}:\d{2}$/.test(value) &&
+                    value !== "00:00:00"
+                ) {
+                    if (earliest === null || value < earliest) earliest = value;
+                    if (latest === null || value > latest) latest = value;
+                }
+            });
+        });
+
+        return { earliest, latest };
+    }
+
+    function DrawWeatherWidget(weather, mytime) {
+        // console.log(weather, mytime)
+
+        var weatherhour = weather.find(function (line) {
+            return line.time === mytime;
+        });
+
+        // widget in header
+        $("#weather_condition").attr('src', WeatherCodeToIcon(weatherhour.weather_code));
+        $("#weather_windspeed").text(weatherhour.wind_speed_10m);
+        $("#weather_windunit").text(weather[0].windunit);
+        $("#weather_winddirection").css('transform', 'rotate(' + weatherhour.wind_direction_10m + 'deg)');
+        $("#weather_temperature").text(weatherhour.temperature_2m);
+        $("#weather_tempunit").text(weather[0].tempunit);
+        $("#weather_widget").fadeIn(200);
+
+        // menu
+        weathermenu = "";
+        const StartAndEndTime = FindEarliestAndLatestFromAllResults();
+        // console.log(StartAndEndTime.earliest, StartAndEndTime.latest)
+
+        const startHour = Math.max(0, parseInt(StartAndEndTime.earliest.slice(0, 2), 10) - 1);
+        const endHour   = Math.min(23, parseInt(StartAndEndTime.latest.slice(0, 2), 10) + 1);
+        // console.log(startHour, endHour)
+
+        const weatherfiltered = weather.filter(item => {
+            if (!item.time) return false;
+            const hour = parseInt(item.time.slice(0, 2), 10);
+            return hour >= startHour && hour <= endHour;
+        });
+
+        weatherfiltered.forEach(function(hour, index){
+            if (index == 0) return; // skip row with units
+            weathermenu += '<div style="display: flex; flex-direction: row; gap: 8px">';
+                weathermenu += '<div><span class="Type_grey_8">' + hour.time + '</span></div>';
+                weathermenu += '<img src="' + WeatherCodeToIcon(hour.weather_code) + '" style="width:24px; height:24px; display:block;" alt="Weather condition">';
+                weathermenu += '<div style="display: flex; gap: 2px; align-items: baseline"><span>' + hour.temperature_2m + '</span><span class="Type_grey_8">' + weather[0].tempunit + '</span></div>';
+                weathermenu += '<img src="img/img_icon_windarrow.svg" style="width:10px; height:26px; transform-origin: center center; transform: rotate(' + hour.wind_direction_10m + 'deg); display:block;" alt="Wind direction arrow">';
+                weathermenu += '<div style="display: flex; gap: 2px; align-items: baseline">' + hour.wind_speed_10m + '<span></span><span class="Type_grey_8">' + weather[0].windunit + '</span></div>';
+            weathermenu += '</div>';
+        })
+
+        $("#weather_widget_menu").append(weathermenu);
+
+    }
+
+    function UpdateBtnProgressionFloat() { // updates position and state of floating button for progression menu
+        let $checked = $('.ProgressionCheckbox').filter(function() {
+            return $(this).attr('src') === 'img/img_icon_box_checked.svg';
+        });
+        if ($checked.length > 0) { // any items checked?
+            let rect = $checked.last().closest('.FlRowResults')[0].getBoundingClientRect(); // find last checked item
+            $('#progression_float').css({ // postion button
+                top: (rect.bottom + 8) + 'px',
+                left: (rect.left + 80) + 'px'
+            }).show();
+        } else {
+            $('#progression_float').hide();
+            $('#progression_wave_menu').fadeOut('fast');
+        }
+    }
+
+</script>
+
+</body>
+
+</html>

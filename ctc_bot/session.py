@@ -80,7 +80,7 @@ def login(
     if is_logged_out(response.text):
         raise LoginError(
             "Login rejected. Check the email and password, then re-run:\n"
-            "    python scripts/set_credentials.py"
+            "    ctc login"
         )
 
     return http

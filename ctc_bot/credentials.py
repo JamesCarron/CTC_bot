@@ -97,7 +97,7 @@ def _decrypt(blob: bytes) -> bytes:
         raise CredentialError(
             "Could not decrypt the credential file. Either it was encrypted for "
             "a different Windows user account or machine, or it has been "
-            "corrupted. Re-run:  python scripts/set_credentials.py"
+            "corrupted. Re-run:  ctc login"
         ) from exc
 
 
@@ -152,7 +152,7 @@ def load(path: Path | None = None) -> Credentials:
     if not target.exists():
         raise CredentialError(
             f"No credentials stored at {target}.\n"
-            "Run:  python scripts/set_credentials.py"
+            "Run:  ctc login"
         )
     data = json.loads(_decrypt(target.read_bytes()).decode("utf-8"))
     return Credentials(username=data["username"], password=data["password"])

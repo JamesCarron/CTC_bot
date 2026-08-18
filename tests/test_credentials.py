@@ -73,7 +73,7 @@ def test_parent_directories_are_created(cred_path):
 
 
 def test_missing_file_gives_actionable_error(cred_path):
-    with pytest.raises(creds.CredentialError, match="set_credentials"):
+    with pytest.raises(creds.CredentialError, match="ctc login"):
         creds.load(cred_path)
 
 

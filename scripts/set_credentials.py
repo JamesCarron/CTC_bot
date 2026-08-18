@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 """Store the RaceClocker admin login securely on this machine.
 
-Run:
+Run (via the ctc launcher, which uses the local pixi environment):
 
-    python scripts/set_credentials.py            # store (and verify) credentials
-    python scripts/set_credentials.py --check    # test what is already stored
-    python scripts/set_credentials.py --delete   # remove the stored credentials
+    ctc login          # store (and verify) credentials
+    ctc check-login    # test what is already stored
+    ctc forget-login   # remove the stored credentials
 
 The password is typed without echo, is never written to disk in plaintext, and
 is never printed back. It is encrypted with Windows DPAPI, which binds it to
@@ -26,20 +26,44 @@ from ctc_bot import credentials as creds  # noqa: E402
 from ctc_bot import session  # noqa: E402
 
 
+NEEDS_TERMINAL = (
+    "This script must be run in a real terminal - it has to prompt you for the\n"
+    "password, and nothing was available to read from.\n"
+    "\n"
+    "Open a terminal in the project folder and run:  ctc login"
+)
+
+
+def _require_terminal() -> None:
+    """Fail early and clearly when there is no interactive input.
+
+    Without this the first prompt dies with a bare EOFError traceback, which
+    says nothing useful about what to do instead.
+    """
+    if not sys.stdin or not sys.stdin.isatty():
+        raise SystemExit(NEEDS_TERMINAL)
+
+
 def _prompt_credentials() -> tuple[str, str]:
     """Ask for the login interactively, with the password hidden."""
+    _require_terminal()
+
     print("RaceClocker admin login")
     print("-" * 40)
 
-    username = input("Email address: ").strip()
-    if not username:
-        raise SystemExit("No email address entered - nothing stored.")
+    try:
+        username = input("Email address: ").strip()
+        if not username:
+            raise SystemExit("No email address entered - nothing stored.")
 
-    password = getpass.getpass("Password (hidden): ")
-    if not password:
-        raise SystemExit("No password entered - nothing stored.")
+        password = getpass.getpass("Password (hidden): ")
+        if not password:
+            raise SystemExit("No password entered - nothing stored.")
 
-    confirm = getpass.getpass("Confirm password: ")
+        confirm = getpass.getpass("Confirm password: ")
+    except EOFError:
+        raise SystemExit(f"\n{NEEDS_TERMINAL}") from None
+
     if password != confirm:
         raise SystemExit("Passwords did not match - nothing stored.")
 
@@ -63,8 +87,13 @@ def cmd_store() -> int:
         return 1
 
     if creds.exists():
+        _require_terminal()
         print(f"Credentials already stored at {creds.default_path()}")
-        if input("Overwrite? [y/N] ").strip().lower() not in {"y", "yes"}:
+        try:
+            answer = input("Overwrite? [y/N] ").strip().lower()
+        except EOFError:
+            raise SystemExit(f"\n{NEEDS_TERMINAL}") from None
+        if answer not in {"y", "yes"}:
             print("Left unchanged.")
             return 0
 
@@ -83,7 +112,7 @@ def cmd_store() -> int:
 def cmd_check() -> int:
     if not creds.exists():
         print(f"No credentials stored at {creds.default_path()}")
-        print("Run:  python scripts/set_credentials.py")
+        print("Run:  ctc login")
         return 1
 
     stored = creds.load()

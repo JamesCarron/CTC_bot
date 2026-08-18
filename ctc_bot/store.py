@@ -8,7 +8,7 @@ replayed over history offline, without re-fetching anything from RaceClocker.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import classify as cls
@@ -26,6 +26,7 @@ class StoredEvent:
     event: rc.Event
     race_type: str
     confident: bool
+    listing: dict = field(default_factory=dict)
 
     @property
     def code(self) -> str:
@@ -45,8 +46,19 @@ def _dirs(data_dir: Path | None = None) -> tuple[Path, Path]:
     return base / "raw", base / "events"
 
 
-def save(html: str, code: str, *, data_dir: Path | None = None) -> StoredEvent:
-    """Archive a page, parse it, classify it and write the parsed form."""
+def save(
+    html: str,
+    code: str,
+    *,
+    data_dir: Path | None = None,
+    extra: dict | None = None,
+) -> StoredEvent:
+    """Archive a page, parse it, classify it and write the parsed form.
+
+    ``extra`` carries metadata the admin listing states outright - start type,
+    intermediate split count - which is more authoritative than anything
+    inferred from the results themselves.
+    """
     raw_dir, events_dir = _dirs(data_dir)
     raw_dir.mkdir(parents=True, exist_ok=True)
     events_dir.mkdir(parents=True, exist_ok=True)
@@ -57,6 +69,8 @@ def save(html: str, code: str, *, data_dir: Path | None = None) -> StoredEvent:
     classification = cls.classify(event)
 
     payload = event.to_dict()
+    if extra:
+        payload["listing"] = extra
     payload["race_type"] = classification.race_type
     payload["confident"] = classification.confident
     payload["classification_notes"] = classification.notes
@@ -64,7 +78,9 @@ def save(html: str, code: str, *, data_dir: Path | None = None) -> StoredEvent:
         json.dumps(payload, indent=2), encoding="utf-8"
     )
 
-    return StoredEvent(event, classification.race_type, classification.confident)
+    return StoredEvent(
+        event, classification.race_type, classification.confident, extra or {}
+    )
 
 
 def ingest(code: str, *, data_dir: Path | None = None) -> StoredEvent:
@@ -96,6 +112,7 @@ def load_all(*, data_dir: Path | None = None) -> list[StoredEvent]:
                 event,
                 payload.get("race_type", cls.UNKNOWN),
                 payload.get("confident", False),
+                payload.get("listing", {}),
             )
         )
     return stored

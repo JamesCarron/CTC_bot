@@ -25,6 +25,11 @@ data/events/*
 out/*
 !out/.gitkeep
 
+# Working scratch: raw page dumps and run logs. The session notes in
+# working/*.md are tracked; these are not.
+working/*.html
+working/*.log
+
 # Athlete claims: personal data, and local state rather than code.
 # Back this up separately - losing it loses every claim.
 data/identity.json

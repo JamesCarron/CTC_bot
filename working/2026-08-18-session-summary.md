@@ -7,7 +7,10 @@ per-athlete trend lines. Create the applet folder, init git, commit as features 
 
 ## State
 
-`C:\GitHub\Applets\CTC_bot` — 9 commits, 46 tests passing, clean tree.
+`C:\GitHub\Applets\CTC_bot` — 14 commits, 61 tests passing, clean tree.
+
+Run it with `ctc` (wraps a local pixi environment):
+`ctc login`, `ctc doctor`, `ctc events`, `ctc test`.
 
 | Commit | Contents |
 |---|---|
@@ -20,6 +23,10 @@ per-athlete trend lines. Create the applet folder, init git, commit as features 
 | `2da9f1b` | Course config, admin-editable distances |
 | `eb82f5e` | Claim-based athlete identity |
 | `35c0e93` | Drop WhatsApp as input; document decisions |
+| `41f1271` | TLS via Windows certificate store (`truststore`) |
+| `03a33e5` | DPAPI credential storage + authenticated session |
+| `90cd30f` | Document login flow and TLS requirement |
+| `928d1aa` | Local pixi environment + `ctc` launcher |
 
 ## Scope change
 
@@ -75,15 +82,29 @@ both series, persisted to disk and reloaded intact.
 - Refresh: scheduled Wednesday and Friday mornings.
 - Dashboard: all four headline views (latest strip, trend, vs-average, standings).
 
+## Runtime setup (no AI, no browser)
+
+- **Login solved.** RaceClocker's admin login is a plain form POST to
+  `Login.php` with `fld_email`/`fld_password` — no CSRF token, no hidden fields,
+  no JavaScript. Cookies carry auth thereafter.
+- **Credentials** encrypted with Windows DPAPI, stored at
+  `%LOCALAPPDATA%\CTC_bot\credentials.bin`, deliberately outside the repo. No
+  plaintext fallback. `ctc login` prompts without echo.
+- **TLS gotcha:** this machine sits behind a TLS-inspecting proxy presenting its
+  own root CA — trusted by Windows, absent from certifi. Plain `requests` failed
+  `CERTIFICATE_VERIFY_FAILED` on *every* host, not just RaceClocker. Fixed with
+  `truststore` (verification stays fully enabled; never disabled).
+- **pixi** environment local to the applet (1.6 GB, gitignored; `pixi.lock`
+  committed). `pixi.exe` itself is checksum-verified in `C:\GitHub\Applets	ools`.
+
 ## Blocked
 
-**Admin console not yet inspected.** An authenticated page cannot be fetched
-with `curl`, and the Claude Chrome extension is not connected. To unblock:
-connect it at `claude.ai/chrome` while staying logged in. I will not be entering
-credentials.
+**Admin event-list structure not yet seen.** Login works, but the listing
+parser is unwritten. Needed: whether the 8-hex codes appear directly in the
+listing, whether a JSON/CSV export exists, and how far back history runs.
 
-Needed from that page: link format, whether a JSON/CSV export exists, and how
-far back history runs.
+Unblock by running `ctc login`, then:
+`python -c "from ctc_bot import session; print(session.fetch_event_list()[:3000])"`
 
 ## Next
 

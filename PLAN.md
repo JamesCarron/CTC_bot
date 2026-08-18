@@ -1,10 +1,17 @@
 # CTC_bot — Plan
 
-A bot that harvests RaceClocker links from the club's triathlon WhatsApp chat,
-parses each event's results, and renders per-athlete trend lines.
+Pulls the club's events from the RaceClocker admin console, parses each event's
+results, and renders per-athlete trend lines.
 
-Status: **Phase 0 complete** — the parsing assumption is verified end to end
-against a live event, and the TT/aquathon classifier is built and tested.
+Status: **Phases 0 and 2 complete** — parsing is verified end to end against two
+real events, the TT/aquathon classifier is built, and claim-based athlete
+identity works and persists. 46 tests passing.
+
+> **Scope change (18 Aug):** WhatsApp is **no longer an input source**. The
+> RaceClocker admin console is the sole source of truth for discovering events.
+> WhatsApp may return later as an *output* channel only (posting results or
+> charts to the chat), which carries none of the history-access problems that
+> made the input route awkward.
 
 ---
 
@@ -33,61 +40,53 @@ checked against real pages rather than assumptions.
 ## 2. Pipeline
 
 ```
-  discovery                parse              normalise            analyse           render
-+--------------+   +------------------+   +--------------+   +--------------+   +--------------+
-| WhatsApp     |   | raceclocker.py   |   | identity.py  |   | metrics.py   |   | HTML board   |
-|  export .txt |-->|  fetch + parse   |-->| alias map    |-->| per-athlete  |-->| + PNG export |
-| linked device|   | classify.py      |   | canonical id |   | series       |   |              |
-| admin list   |   |  TT vs aquathon  |   |              |   |              |   |              |
-+--------------+   +------------------+   +--------------+   +--------------+   +--------------+
-       |                    |
-       |            data/raw/<code>.html      <- archived verbatim, so any parse
-       |            data/events/<code>.json      change can be replayed offline
-       +-- link queue, de-duplicated by 8-hex event code
+  discovery              parse              identity            analyse           render
++--------------+  +------------------+  +--------------+  +--------------+  +--------------+
+| RaceClocker  |  | raceclocker.py   |  | identity.py  |  | metrics.py   |  | HTML board   |
+| admin console|->|  fetch + parse   |->| claim-based  |->| per-athlete  |->| + claim form |
+| (My_Events)  |  | classify.py      |  | registry     |  | series       |  | + PNG export |
++--------------+  +------------------+  +--------------+  +--------------+  +--------------+
+                          |                     |                 |
+              data/raw/<code>.html      data/identity.json   data/courses.json
+              data/events/<code>.json   (claims, remembered) (admin distances)
 ```
 
 **Archive-then-parse** is deliberate. Raw HTML is kept forever; derived JSON is
 disposable and regenerable. If RaceClocker changes its markup, history is not
 lost — only the parser needs updating.
 
-## 3. Discovery: three routes, in order of preference
+## 3. Discovery: the admin console
 
-### 3a. Admin event list (best — newly available)
+`https://raceclocker.com/My_Events.php`, behind your admin login, is the **sole
+source of truth**. It enumerates every event in the club account — including
+aquathons that were never shared to any chat — which makes it complete, ordered,
+and independent of anyone remembering to post a link.
 
-`https://raceclocker.com/My_Events.php` behind your admin login enumerates
-*every* event in the club account, including aquathons that may never have been
-posted to the chat. This is strictly better than link-scraping: complete,
-ordered, and not dependent on someone remembering to share a link.
+**Still blocked.** An authenticated page cannot be fetched with `curl`, and the
+Claude Chrome extension is not connected, so I have not been able to look at the
+page. To unblock: connect the extension at `claude.ai/chrome` while staying
+logged in, and I will read the already-authenticated page. I will not be
+entering your credentials.
 
-**Not yet inspected** — the Claude Chrome extension is not currently connected,
-and an authenticated page cannot be reached with `curl`. Next step is to look at
-that page and see whether it exposes a JSON endpoint or a CSV export. I will not
-be entering your credentials; you stay logged in and I read the
-already-authenticated page.
+What I need from that page:
 
-### 3b. WhatsApp chat export (backfill)
+- how events are listed (link format, whether the 8-hex code appears directly);
+- whether a JSON endpoint or CSV export exists — much preferable to scraping;
+- whether past seasons are paginated, and how far back history runs.
 
-WhatsApp's built-in *Export chat → Without media* produces a `.txt` with the
-full history including every URL. Drop it in `data/exports/` and the bot
-extracts all `raceclocker.com/<8-hex>` codes. Zero account risk, complete
-history, one manual step.
+`raceclocker.extract_event_codes()` already pulls `raceclocker.com/<8-hex>`
+codes out of any HTML, so a plain listing page needs no new parsing work.
 
-### 3c. Linked device (ongoing, opt-in)
+### WhatsApp: dropped as an input
 
-Pairs as a WhatsApp linked device to pick up new links automatically.
+Previously planned as the discovery route via chat export and a linked device.
+Removed — the admin console is strictly better, and dropping it also removes the
+account-ban risk, the Node dependency, and the limited-history problem that came
+with linking a device.
 
-> **Risk, stated plainly:** this is unofficial automation of a personal account
-> and carries a genuine ban risk. Two further limits matter: a newly linked
-> device only syncs a limited window of history (which is exactly why 3b does
-> the backfill), and the mature libraries (Baileys, whatsapp-web.js) are
-> **Node-only** — Node is not currently installed on this machine. The Python
-> option is `neonize` (bindings to `whatsmeow`).
->
-> Mitigations: read-only listener, no auto-replies, no bulk sends, low request
-> volume, and the bot never sends anything without explicit confirmation.
-
-Given 3a is now available, **3c may be unnecessary** — worth deciding before
-building it.
+WhatsApp remains a candidate **output** channel later (posting a results summary
+or a chart to the group). That direction is far simpler: it needs no chat
+history, and sending would always be gated on explicit confirmation.
 
 ## 4. Race classification
 
@@ -112,79 +111,118 @@ their usual weekday — any single-signal classifier would quietly get those wro
 
 Implemented in `ctc_bot/classify.py`; the disagreement path is tested.
 
-## 5. Athlete identity — the hard problem
+## 5. Athlete identity — claim-based *(implemented)*
 
-This is the part most likely to produce wrong-but-plausible charts.
+The part most likely to produce wrong-but-plausible charts, and the reason it
+cannot be automated: **RaceClocker publishes no usable identifying data.**
 
-In the sample event alone: `Kevin` and `Kevin G` are **two different people**;
-`Peter` and `Peter M` likewise; `Dylan ` carries a trailing space. Bib numbers
-are reassigned every event (1–15 here), so **bib is not identity**.
+Across both sample events, `Gender` is `"Male"` for all 24 athletes — including
+Kathleen, Fiona, Dee, Maura, Lorraine, Keelin and Sinead. `Age`, `Club`, `Cat`,
+`Wave`, `Handicap` and `Penalty` are all empty or defaults. The **name string is
+the only identifying field that exists**, and bib numbers are reassigned every
+event.
 
-Design:
+Meanwhile the names genuinely collide: `Kevin` and `Kevin G` are two different
+people in the same race, as are `Peter` and `Peter M`; `Dylan ` carries a
+trailing space.
 
-1. **Normalise** — trim, collapse whitespace, casefold for matching only
-   (original spelling preserved for display).
-2. **Curated alias map** (`aliases.yml`) — variant to canonical athlete.
-   Hand-owned by you, version-controlled, the single source of truth.
-3. **Fuzzy _suggestions_ only** — `rapidfuzz` proposes candidate merges for
-   review. It must **never** auto-merge: on this data an automatic fuzzy pass
-   would merge `Kevin`/`Kevin G` and be confidently wrong.
-4. **Unresolved names are reported, never silently dropped**, so nobody quietly
-   vanishes from their own trend line.
+So identity is **claimed, not inferred**:
 
-## 6. Metrics — making events actually comparable
+1. An athlete enters their first name.
+2. They are shown every matching result across all events — date, race, bib,
+   position and time — enough to recognise their own races.
+3. They tick the ones that are theirs.
+4. The claim is stored against the **specific result row** (`event code + RaceID`),
+   never against a name string. A name is ambiguous; a row is not.
+5. Name variants are then *derived* from those claims, which is what lets two
+   Kevins coexist without either corrupting the other's history.
 
-Raw finish time across different courses, distances and weather is close to
-meaningless as a trend. Store the raw value, but lead with normalised metrics:
+### Resolution precedence
 
-- **Pace / speed** (min/km, km/h) — normalises distance.
-- **Field-relative z-score** — `(athlete_time − field_mean) / field_stdev` for
-  that event. Cancels out weather, wind and course changes, and is the single
-  best "form" indicator for a recurring club series.
-- **Rank percentile** — robust, easy to read, insensitive to outliers.
-- **Personal best / season best** markers.
-- **Per-leg splits** for aquathons — swim vs run legs trended separately, which
-  is where the interesting coaching signal lives.
+Every result row across every event resolves to exactly one of:
 
-Trend lines are drawn **within a series** (TT with TT, aquathon with aquathon),
-never pooled.
+| Source | Meaning |
+|---|---|
+| `claimed` | The athlete ticked this exact row. Always wins. |
+| `inferred` | The spelling was learned from exactly one athlete's claims — later events resolve with no new input. This is the "remembers going forward" behaviour. |
+| `ambiguous` | The spelling belongs to two or more claimed athletes. Never guessed; surfaced for a claim. |
+| `contested` | The same name appears twice **within a single event**, which is direct proof two people share it. Never auto-grouped. |
+| `provisional` | Unclaimed, but the spelling is unique, so grouped by exact name. Unclaimed athletes still get a trend line. |
 
-Handle `DNF` / `DNS` / penalties explicitly: excluded from trends, shown as
-gaps, never coerced to zero.
+Nobody is ever silently dropped — a test asserts every row resolves to something.
 
-## 7. Output
+Fuzzy matching is deliberately **not** used for merging. On this data an
+automatic fuzzy pass would merge `Kevin`/`Kevin G` and be confidently wrong.
 
-- **HTML dashboard** (`out/dashboard.html`) — self-contained, Jinja2-rendered,
-  opened locally. Athlete filter, hover splits, head-to-head comparison.
-- **On-demand PNG** (`matplotlib`) — one athlete's trend as a shareable image
-  you can post to the group yourself.
+## 6. Metrics
 
-## 8. Phases
+Both courses are confirmed **fixed** across a season (TT 13 km; aquathon 600 m
+swim + 3.5 km run), so raw time is directly comparable within a series. Trends
+are still built on normalised metrics so that a future course change does not
+invalidate history:
+
+- **Raw time** — the headline number, valid because courses are fixed.
+- **Pace / speed** — min/km and km/h, per leg for aquathons.
+- **Field-relative z-score** — `(athlete − field mean) / field stdev` for that
+  event. Cancels out weather and wind, which matter a lot for a 13 km bike TT.
+- **Rank percentile** — robust and easy to read.
+- **Personal best** markers.
+
+Distances come from `data/courses.json` (admin-editable), **not** from the page:
+RaceClocker reports the aquathon as `8.0 km` when the real course is 4.1 km.
+Trusting it would put every aquathon pace out by roughly 2x.
+
+Trends are drawn **within a series**, never pooled. `DNF`/`DNS` are excluded
+from trends and shown as gaps, never coerced to zero.
+
+**Time bucketing:** one continuous rolling line per athlete across all history,
+with seasons colour-coded so both the long arc and within-season form are visible.
+
+## 7. Output — the dashboard
+
+Single self-contained HTML dashboard, everyone sees everyone. All four views,
+in this order:
+
+1. **Latest result strip** — the most recent event, for immediate post-race interest.
+2. **"Am I improving?"** — per-athlete trend line with fitted direction and PB markers.
+3. **"How did the last race go?"** — each athlete's change vs their own average.
+4. **Club standings** — season leaderboard across the series.
+
+Plus:
+
+- **Claim form** — the identity flow above, served in the dashboard so athletes
+  self-serve. Needs a small local web server rather than a plain `file://` page,
+  since claims write back to `data/identity.json`.
+- **On-demand PNG** — one athlete's trend as a shareable image.
+
+## 8. Automation
+
+Scheduled runs on **Wednesday and Friday mornings**, the mornings after the
+Tuesday TT and Thursday aquathon. Each run pulls the admin event list, ingests
+anything new, re-resolves identity and rebuilds the dashboard.
+
+## 9. Phases
 
 | Phase | Deliverable | State |
 |---|---|---|
-| 0 | Scaffold, RaceClocker parser, pinned fixture tests, TT/aquathon classifier | **done** |
-| 1 | WhatsApp export parser + link extraction + backfill runner | next |
-| 1b | Admin `My_Events.php` discovery | blocked on browser |
-| 2 | Athlete identity resolution + `aliases.yml` + unresolved-name report | |
-| 3 | Metrics engine (pace, z-score, percentile, PB) | |
-| 4 | HTML dashboard | |
-| 5 | PNG renderer | |
-| 6 | Aquathon per-leg analysis | |
-| 7 | Linked-device listener (opt-in, only if 3a proves insufficient) | |
+| 0 | Scaffold, RaceClocker parser, pinned fixture tests | **done** |
+| 1 | TT/aquathon classifier | **done** |
+| 2 | Claim-based identity registry, search/claim/resolve, persistence | **done** |
+| 2b | Course config, admin-editable distances | **done** |
+| 3 | Admin console discovery | **blocked** — needs browser access |
+| 4 | Metrics engine (pace, z-score, percentile, PB) | next |
+| 5 | HTML dashboard + claim web form | |
+| 6 | PNG renderer | |
+| 7 | Scheduled Wed/Fri refresh | |
+| 8 | WhatsApp as an *output* channel (optional, later) | |
 
-## 9. Open questions
+## 10. Open questions
 
-1. **Does `My_Events.php` expose a clean export?** If yes, it likely replaces
-   WhatsApp scraping entirely for discovery. Needs the Chrome extension connected.
-2. **Is the TT course always 13 km?** If the route varies, distance must be
-   captured per event (it already is) and trends grouped by course, not just series.
-3. ~~Are aquathon legs swim-then-run, and is transition timed separately?~~
-   **Answered** by `dd7293a5`: slots 1 → 2 → 5 give exactly two legs (swim, then
-   run) with no separately timed transition — T1 is absorbed into the run leg.
-4. **What are the aquathon leg distances?** The page publishes only a combined
-   `8.0 km`, so swim and run pace cannot be computed until you supply the split
-   (e.g. 750 m swim + 7.25 km run). Needed for per-leg pace; leg *times* already work.
-5. **How far back does the chat history go**, and does it cover the full series?
-6. **Is the aquathon always 8 km / the TT always 13 km?** If either route varies,
-   trends must group by course as well as series.
+1. **Admin console structure** — blocked on browser access. Does it expose a
+   JSON/CSV export? How far back does history go? How many events exist?
+2. **Do athletes ever change their entered name** between seasons (e.g. `Kev` one
+   year, `Kevin G` the next)? Claims handle it, but it affects how much manual
+   claiming is needed up front.
+3. **Should the claim form be reachable by other club members**, or does it only
+   ever run on your machine? Affects whether the local server needs any access
+   control at all.

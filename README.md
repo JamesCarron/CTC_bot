@@ -1,7 +1,10 @@
 # CTC_bot
 
-Harvests RaceClocker links from the club triathlon WhatsApp chat, parses each
-event's results, and renders per-athlete trend lines.
+Pulls the club's triathlon events from the RaceClocker admin console, parses
+each event's results, and renders per-athlete trend lines.
+
+Athletes identify themselves by claiming their own results: enter a first name,
+pick your races out of the list, and the tool remembers you from then on.
 
 See [PLAN.md](PLAN.md) for architecture, verified findings and roadmap.
 
@@ -33,9 +36,12 @@ for row in rc.ranked(event.results)[:3]:                  # recomputed positions
 |---|---|
 | `ctc_bot/raceclocker.py` | Fetch + parse RaceClocker result pages, leg/elapsed maths |
 | `ctc_bot/classify.py` | Time trial vs aquathon classification |
+| `ctc_bot/identity.py` | Claim-based athlete identity: search, claim, resolve |
+| `ctc_bot/config.py` | Course distances (admin-editable, overrides the page) |
+| `ctc_bot/store.py` | Archive raw HTML + persist parsed events |
 | `tests/fixtures_*.html` | Verbatim snapshots of real events, used as regression fixtures |
-| `data/raw/` | Archived HTML snapshots (gitignored) |
-| `data/exports/` | WhatsApp chat exports (gitignored — personal data) |
+| `data/raw/`, `data/events/` | Archived snapshots and parsed events (gitignored) |
+| `data/identity.json` | Athlete claims (gitignored — personal data; **back this up**) |
 | `out/` | Generated dashboard and PNGs (gitignored) |
 
 ## Gotchas worth knowing
@@ -50,6 +56,31 @@ These are all verified against real pages, not assumptions:
 - **Split times need their `...dc` deci-second field**, or results drift by up to
   0.9 s.
 - **Bib numbers are reassigned every event**, so they are not athlete identity.
-  Names are free text and collide meaningfully (`Kevin` and `Kevin G` are two
-  different people) — identity is resolved from a curated alias map, never by
-  automatic fuzzy matching.
+- **No demographic data exists.** `Gender` is `"Male"` for all 24 athletes across
+  both events, including Kathleen, Fiona, Dee, Maura, Lorraine, Keelin and
+  Sinead; `Age`, `Club`, `Cat` and `Wave` are empty or defaults. The name string
+  is the only identifying field, which is why identity is claimed rather than
+  inferred.
+- **The published aquathon distance is wrong** — `8.0 km` against a real 4.1 km
+  course. Distances come from `ctc_bot/config.py` / `data/courses.json`.
+
+## Claiming your results
+
+```python
+from ctc_bot import store, identity as idn
+
+events = store.load_all()
+registry = idn.Registry.load()
+
+candidates = registry.search("Kevin", events)
+for i, c in enumerate(candidates, 1):
+    print(i, c.describe())
+#  1  Tuesday 18 Aug '26  Timetrial 18th aug  'Kevin G'  bib 2   #1  20:12.8
+#  2  Tuesday 18 Aug '26  Timetrial 18th aug  'Kevin'    bib 4  #13  25:20.2
+
+registry.claim("Kevin Gallagher", [candidates[0]])   # ticks row 1 only
+registry.save()
+```
+
+From then on, `Kevin G` resolves to Kevin Gallagher automatically in future
+events, while `Kevin` stays a separate person.

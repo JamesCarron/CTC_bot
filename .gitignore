@@ -9,15 +9,15 @@ venv/
 # Secrets / session state
 .env
 secrets/
-wa_session/
-*.session
 
 # Data: raw snapshots and derived sets are regenerable
 data/raw/*
 !data/raw/.gitkeep
 data/events/*
 !data/events/.gitkeep
-data/exports/*
-!data/exports/.gitkeep
 out/*
 !out/.gitkeep
+
+# Athlete claims: personal data, and local state rather than code.
+# Back this up separately - losing it loses every claim.
+data/identity.json

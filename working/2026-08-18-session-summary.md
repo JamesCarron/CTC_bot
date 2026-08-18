@@ -95,7 +95,7 @@ both series, persisted to disk and reloaded intact.
   `CERTIFICATE_VERIFY_FAILED` on *every* host, not just RaceClocker. Fixed with
   `truststore` (verification stays fully enabled; never disabled).
 - **pixi** environment local to the applet (1.6 GB, gitignored; `pixi.lock`
-  committed). `pixi.exe` itself is checksum-verified in `C:\GitHub\Applets	ools`.
+  committed). `pixi.exe` itself is checksum-verified in `C:\GitHub\Applets\tools`.
 
 ## Blocked
 

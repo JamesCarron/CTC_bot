@@ -6,9 +6,12 @@ venv/
 *.egg-info/
 .pytest_cache/
 
-# Secrets / session state
+# Secrets. Credentials are stored outside the repo entirely
+# (%LOCALAPPDATA%\CTC_bot), but keep these as a backstop.
 .env
 secrets/
+credentials.bin
+*.credentials
 
 # Data: raw snapshots and derived sets are regenerable
 data/raw/*

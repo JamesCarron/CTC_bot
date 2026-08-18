@@ -77,6 +77,7 @@ class Performance:
     seconds: float
     position: int
     field_size: int
+    contested: bool = False
     leg_seconds: list[float] = field(default_factory=list)
     z_score: float | None = None
     percentile: float | None = None
@@ -111,6 +112,7 @@ class Athlete:
     athlete_id: str
     display_name: str
     verified: bool
+    contested: bool = False
     performances: list[Performance] = field(default_factory=list)
 
     @property
@@ -221,6 +223,7 @@ def build(stored_events, registry: idn.Registry) -> dict[str, Athlete]:
                 seconds=seconds,
                 position=row["Position"],
                 field_size=field_size,
+                contested=resolution.may_be_several_people,
                 leg_seconds=rc.leg_seconds(row),
             )
 
@@ -240,6 +243,7 @@ def build(stored_events, registry: idn.Registry) -> dict[str, Athlete]:
                 athletes[resolution.athlete_id] = athlete
             # A claim anywhere makes the whole identity verified.
             athlete.verified = athlete.verified or resolution.verified
+            athlete.contested = athlete.contested or resolution.may_be_several_people
             athlete.performances.append(performance)
 
     _mark_personal_bests(athletes)

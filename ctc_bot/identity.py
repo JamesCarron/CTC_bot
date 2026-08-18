@@ -171,6 +171,16 @@ class Resolution:
         """Whether this row belongs to a trendable person at all."""
         return self.source != PLACEHOLDER
 
+    @property
+    def may_be_several_people(self) -> bool:
+        """Whether this group is known to possibly mix more than one person.
+
+        Contested and ambiguous groups are still shown - dropping them would
+        silently erase real results, and one of the club's most active entries
+        (17 races) is contested. They are surfaced with a warning instead.
+        """
+        return self.source in {CONTESTED, AMBIGUOUS}
+
 
 class Registry:
     """The remembered set of athletes and their claimed rows."""
@@ -377,9 +387,11 @@ def resolve(stored_events, registry: Registry) -> dict[tuple[str, str], Resoluti
                     owners[0].id, owners[0].display_name, INFERRED
                 )
             elif len(owners) > 1:
-                resolutions[key] = Resolution(None, display, AMBIGUOUS)
+                # Grouped so the results stay visible, but flagged: this bucket
+                # may hold more than one person until someone claims their rows.
+                resolutions[key] = Resolution(f"ambiguous:{name}", display, AMBIGUOUS)
             elif name in contested:
-                resolutions[key] = Resolution(None, display, CONTESTED)
+                resolutions[key] = Resolution(f"contested:{name}", display, CONTESTED)
             else:
                 resolutions[key] = Resolution(f"name:{name}", display, PROVISIONAL)
 

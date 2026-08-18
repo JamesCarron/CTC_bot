@@ -81,6 +81,7 @@ def build_payload(stored_events, registry: idn.Registry) -> dict:
                 "id": athlete.athlete_id,
                 "name": athlete.display_name,
                 "verified": athlete.verified,
+                "contested": athlete.contested,
                 "races": athlete.race_count,
                 "first": athlete.first_raced.isoformat(),
                 "last": athlete.last_raced.isoformat(),
@@ -572,11 +573,19 @@ function showAthlete(a) {
   let html = `<div class="row"><h2 style="margin:0">${esc(a.name)}</h2>
     ${a.verified
       ? '<span class="pill">identity confirmed</span>'
-      : '<span class="pill unverified">unverified — may combine more than one person</span>'}
+      : a.contested
+        ? '<span class="pill unverified">contested — two people share this name</span>'
+        : '<span class="pill unverified">unverified — may combine more than one person</span>'}
     <span class="pill">${a.races} race${a.races === 1 ? "" : "s"}</span>
     <span class="pill">${a.first.slice(0,4)}–${a.last.slice(0,4)}</span></div>`;
 
-  if (!a.verified) {
+  if (a.contested) {
+    html += `<div class="note"><b>This name appears twice within a single race.</b>
+      That is either two people sharing it, or one person entered twice — the club's
+      history has both. The results are all shown here rather than hidden, but they
+      almost certainly do not all belong to one person, so treat the trend with care.
+      Claiming below will separate them.</div>`;
+  } else if (!a.verified) {
     html += `<div class="note">Grouped only by the exact name typed on the entry list.
       Over seven years that may be more than one person. Claim these results below to confirm.</div>`;
   }

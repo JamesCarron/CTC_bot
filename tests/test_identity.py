@@ -165,7 +165,10 @@ def test_same_spelling_claimed_by_two_athletes_is_ambiguous():
 
     assert resolution.source == idn.AMBIGUOUS
     assert resolution.needs_claim
-    assert resolution.athlete_id is None
+    assert resolution.may_be_several_people
+    # Grouped rather than dropped: a null id erased the rows entirely, which
+    # hid one of the club's most active entries (17 races) from the dashboard.
+    assert resolution.athlete_id == "ambiguous:kevin"
 
 
 def test_duplicate_name_within_one_event_is_contested():
@@ -181,6 +184,9 @@ def test_duplicate_name_within_one_event_is_contested():
     resolutions = idn.resolve([event], idn.Registry())
     assert all(r.source == idn.CONTESTED for r in resolutions.values())
     assert all(r.needs_claim for r in resolutions.values())
+    # Still addressable, so the results stay visible with a warning.
+    assert all(r.athlete_id == "contested:kevin" for r in resolutions.values())
+    assert all(r.may_be_several_people for r in resolutions.values())
 
 
 def test_unclaimed_unique_names_group_provisionally(real_events):

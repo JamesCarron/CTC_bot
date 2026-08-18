@@ -212,3 +212,22 @@ def test_excluded_events_never_reach_the_metrics():
     ann = metrics.build([real, copy], idn.Registry())["name:ann"]
     assert ann.race_count == 1
     assert ann.performances[0].seconds == 1500.0
+
+
+def test_contested_athletes_are_shown_not_dropped():
+    """A contested name must not vanish from the dashboard.
+
+    Lorraine has 15 timed races and is contested; setting her athlete_id to
+    None erased every one of them from the metrics, and she disappeared from
+    the dashboard entirely.
+    """
+    rows = [("Lorraine", 1700.0), ("Lorraine", 1800.0), ("Ann", 1750.0),
+            ("Bea", 1760.0), ("Cid", 1770.0)]
+    event = make_event("cont", rows)
+    athletes = metrics.build([event], idn.Registry())
+
+    assert "contested:lorraine" in athletes
+    lorraine = athletes["contested:lorraine"]
+    assert lorraine.race_count == 2
+    assert lorraine.contested is True
+    assert lorraine.verified is False

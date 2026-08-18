@@ -1,0 +1,12 @@
+requests>=2.31
+jinja2>=3.1
+python-dateutil>=2.9
+
+# Phase 4 (PNG rendering)
+matplotlib>=3.8
+
+# Phase 2 (alias suggestions only - never auto-merges)
+rapidfuzz>=3.6
+
+# Dev
+pytest>=8.0

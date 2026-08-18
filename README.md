@@ -15,6 +15,34 @@ python -m pip install -r requirements.txt
 python -m pytest tests/ -q
 ```
 
+## Logging in
+
+The app authenticates to RaceClocker itself. No browser, no automation tooling,
+no AI involved at runtime.
+
+```bash
+python scripts/set_credentials.py            # store the login (password hidden)
+python scripts/set_credentials.py --check    # verify what is stored
+python scripts/set_credentials.py --delete   # remove it
+```
+
+The password is typed without echo, encrypted with **Windows DPAPI**, and
+written to `%LOCALAPPDATA%\CTC_bot\credentials.bin` — deliberately **outside
+this repository**, so it can never be committed. DPAPI binds the ciphertext to
+your Windows user account: copying the file to another machine or opening it as
+another user yields nothing. There is no master password to remember, and no
+plaintext fallback — if no secure backend is available the script refuses to
+store anything.
+
+Then, in code:
+
+```python
+from ctc_bot import session
+
+http = session.login()                 # reads the encrypted store
+html = session.fetch_event_list()      # authenticated My_Events.php
+```
+
 ## Current capability
 
 ```python
@@ -39,6 +67,9 @@ for row in rc.ranked(event.results)[:3]:                  # recomputed positions
 | `ctc_bot/identity.py` | Claim-based athlete identity: search, claim, resolve |
 | `ctc_bot/config.py` | Course distances (admin-editable, overrides the page) |
 | `ctc_bot/store.py` | Archive raw HTML + persist parsed events |
+| `ctc_bot/credentials.py` | DPAPI-encrypted credential storage |
+| `ctc_bot/session.py` | Authenticated RaceClocker session |
+| `scripts/set_credentials.py` | Interactive, secure credential setup |
 | `tests/fixtures_*.html` | Verbatim snapshots of real events, used as regression fixtures |
 | `data/raw/`, `data/events/` | Archived snapshots and parsed events (gitignored) |
 | `data/identity.json` | Athlete claims (gitignored — personal data; **back this up**) |
@@ -63,6 +94,11 @@ These are all verified against real pages, not assumptions:
   inferred.
 - **The published aquathon distance is wrong** — `8.0 km` against a real 4.1 km
   course. Distances come from `ctc_bot/config.py` / `data/courses.json`.
+- **TLS on this machine needs `truststore`.** Something here inspects TLS and
+  presents its own root CA, trusted by Windows but absent from certifi, so plain
+  `requests` fails `CERTIFICATE_VERIFY_FAILED` on *every* host. `ctc_bot`
+  redirects verification to the Windows certificate store on import.
+  Verification stays fully enabled — never disable it instead.
 
 ## Claiming your results
 

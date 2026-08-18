@@ -32,6 +32,7 @@ designing anything. Findings that shape the whole build:
 | **`SplitNames` are a generic triathlon template, not ground truth** | In the aquathon the real finish sits in the slot labelled `"Run start"`, while slot 6 (`"Finish"`) is empty. Legs are derived from *populated slots*, never from labels. |
 | TT uses **individual starts** (15 distinct start times); the aquathon is a **mass start** (1 shared start time) | A fourth structural signal, and it confirms elapsed time must always be computed per athlete rather than from a single gun time. |
 | No per-leg distances are published (`AllCustomLapNamesAndDistances`, `CategoryDistanceOverrides`, `WaveDistanceOverrides` are all empty); the aquathon's `Distance` is a single combined `8.0 km` | Swim/run leg *pace* cannot be derived from the page. Leg distances must come from config. |
+| This machine sits behind a TLS-inspecting proxy presenting its own root CA - trusted by Windows, absent from certifi | Plain `requests` fails `CERTIFICATE_VERIFY_FAILED` on *every* host, not just RaceClocker. `ctc_bot` uses `truststore` to verify against the Windows certificate store. Verification stays on. |
 | The page also loads Ably websockets for live updates | Live in-race tracking is possible later, but is explicitly out of scope for v1. |
 
 Both sample events are archived as test fixtures, so any future parser change is
@@ -62,13 +63,24 @@ source of truth**. It enumerates every event in the club account — including
 aquathons that were never shared to any chat — which makes it complete, ordered,
 and independent of anyone remembering to post a link.
 
-**Still blocked.** An authenticated page cannot be fetched with `curl`, and the
-Claude Chrome extension is not connected, so I have not been able to look at the
-page. To unblock: connect the extension at `claude.ai/chrome` while staying
-logged in, and I will read the already-authenticated page. I will not be
-entering your credentials.
+**Login is solved and needs no browser or AI.** The admin login is a plain HTML
+form post - no CSRF token, no hidden fields, no JavaScript step:
 
-What I need from that page:
+```
+POST https://raceclocker.com/Login.php
+    fld_email=...&fld_password=...
+```
+
+Auth is carried by cookies thereafter, so one `requests.Session` covers a whole
+run. Credentials are stored encrypted with Windows DPAPI outside the repo; see
+`ctc_bot/credentials.py` and `scripts/set_credentials.py`.
+
+**Still to inspect:** the structure of the event list itself. I have not seen
+the authenticated page, so the listing parser is not written yet. Either connect
+the Chrome extension, or simply run the app once logged in and share what the
+page contains.
+
+What is needed from that page:
 
 - how events are listed (link format, whether the 8-hex code appears directly);
 - whether a JSON endpoint or CSV export exists — much preferable to scraping;
@@ -209,7 +221,8 @@ anything new, re-resolves identity and rebuilds the dashboard.
 | 1 | TT/aquathon classifier | **done** |
 | 2 | Claim-based identity registry, search/claim/resolve, persistence | **done** |
 | 2b | Course config, admin-editable distances | **done** |
-| 3 | Admin console discovery | **blocked** — needs browser access |
+| 3a | Secure credential storage + authenticated session | **done** |
+| 3b | Admin console event-list parsing | needs the page structure |
 | 4 | Metrics engine (pace, z-score, percentile, PB) | next |
 | 5 | HTML dashboard + claim web form | |
 | 6 | PNG renderer | |
@@ -218,8 +231,8 @@ anything new, re-resolves identity and rebuilds the dashboard.
 
 ## 10. Open questions
 
-1. **Admin console structure** — blocked on browser access. Does it expose a
-   JSON/CSV export? How far back does history go? How many events exist?
+1. **Admin console structure** — login works; the *listing* format is still
+   unseen. Does it expose a JSON/CSV export? How far back does history go?
 2. **Do athletes ever change their entered name** between seasons (e.g. `Kev` one
    year, `Kevin G` the next)? Claims handle it, but it affects how much manual
    claiming is needed up front.

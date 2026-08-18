@@ -33,10 +33,12 @@ def test_two_timed_legs(event):
 
 
 def test_classified_as_aquathon_on_all_three_signals(event):
+    """Inferred alone, with no admin metadata: weekday, legs and title agree."""
     result = cls.classify(event)
     assert result.race_type == cls.AQUATHON
     assert result.confident
-    assert set(result.signals.values()) == {cls.AQUATHON}
+    inferred = {k: v for k, v in result.signals.items() if k != "listing"}
+    assert set(inferred.values()) == {cls.AQUATHON}
 
 
 def test_split_names_are_a_template_not_ground_truth(event):

@@ -3,9 +3,10 @@
 Pulls the club's events from the RaceClocker admin console, parses each event's
 results, and renders per-athlete trend lines.
 
-Status: **Phases 0 and 2 complete** — parsing is verified end to end against two
-real events, the TT/aquathon classifier is built, and claim-based athlete
-identity works and persists. 46 tests passing.
+Status: **Phases 0–3 complete.** The club's full history is backfilled from the
+admin console: **209 events pulled, 152 curated races** (105 time trials, 47
+aquathons) spanning 2019–2026, **2,649 result rows**, zero events left needing
+review. Claim-based identity works and persists. 110 tests passing.
 
 > **Scope change (18 Aug):** WhatsApp is **no longer an input source**. The
 > RaceClocker admin console is the sole source of truth for discovering events.
@@ -89,6 +90,27 @@ What is needed from that page:
 `raceclocker.extract_event_codes()` already pulls `raceclocker.com/<8-hex>`
 codes out of any HTML, so a plain listing page needs no new parsing work.
 
+### What the backfill found
+
+228 events listed, 209 fetched (19 were never published to a public link). Of
+those, **57 are not races the club would trend** and are excluded with a
+recorded reason:
+
+| Reason | Count | What it is |
+|---|---|---|
+| no recorded times | 11 | Start lists nobody ever timed - full fields, no results |
+| track/running series | 11 | The Wednesday 3 km/5 km track TTs - a different discipline |
+| copy | 10 | `(Copy of) ...` duplicates with overlapping fields |
+| no participants | 9 | Empty shells |
+| one-off club event | 8 | LaGrandeCourse, 5k/10k club races, training and away races |
+| test | 5 | `TT Test Demo`, `test Aquathon` - made-up times |
+| not the club TT course | 2 | A "5km Time Trial" is the running series, not the 13 km bike TT |
+| template | 1 | `Aquathon TEMPLATE COPY ME` |
+
+A shared date is **never** grounds for exclusion on its own: genuinely distinct
+races share dates (a 5 km and a 10 km on one morning, the 20 km and 40 km legs
+of one event). Only the event's own title, field and timing are used.
+
 ### WhatsApp: dropped as an input
 
 Previously planned as the discovery route via chat export and a linked device.
@@ -107,10 +129,17 @@ comparable. Three independent signals are scored and cross-checked:
 
 | Signal | Time trial | Aquathon |
 |---|---|---|
+| **Admin console start type** (authoritative) | `Time trial` | `Mass start (1 split)` |
 | Weekday (from header text) | Tuesday | Thursday |
 | Timed legs (populated split slots − 1) | 1 | 2 |
 | Title keywords | `time trial`, `timetrial`, `tt` | `aquathon`, `aquathlon` |
-| Start style (available, not yet scored) | individual starts | mass start |
+
+The admin console **states** each event's start type and split count. That is
+recorded by the timing system rather than inferred from results, so when present
+it settles the classification outright — any disagreeing inference is noted but
+overruled. This resolved every one of the 34 events that inference alone left
+uncertain, including a genuine aquathon that ran on a Tuesday (weekday said time
+trial, structure said aquathon, so inference deadlocked at `unknown`).
 
 **Validated against both sample events:** the TT classifies as `time_trial` and
 the aquathon as `aquathon`, with all three signals agreeing in each case.
@@ -222,17 +251,33 @@ anything new, re-resolves identity and rebuilds the dashboard.
 | 2 | Claim-based identity registry, search/claim/resolve, persistence | **done** |
 | 2b | Course config, admin-editable distances | **done** |
 | 3a | Secure credential storage + authenticated session | **done** |
-| 3b | Admin console event-list parsing | needs the page structure |
-| 4 | Metrics engine (pace, z-score, percentile, PB) | next |
+| 3b | Admin console event-list parsing + full backfill | **done** |
+| 3c | Event curation (which events count towards trends) | **done** |
+| 4 | Metrics engine (pace, z-score, percentile, PB) | **next** |
 | 5 | HTML dashboard + claim web form | |
 | 6 | PNG renderer | |
 | 7 | Scheduled Wed/Fri refresh | |
 | 8 | WhatsApp as an *output* channel (optional, later) | |
 
-## 10. Open questions
+## 10. Decisions taken on the backfilled data
 
-1. **Admin console structure** — login works; the *listing* format is still
-   unseen. Does it expose a JSON/CSV export? How far back does history go?
+- **Track/running TTs excluded.** The Wednesday 3 km/5 km track series is a real
+  series, but a 5 km run cannot share a trend line with a 13 km bike time trial.
+- **One-off club events excluded.** LaGrandeCourse, the 5k/10k club races,
+  training and away races happen once, so there is nothing to trend against.
+- **Untimed events excluded**, with the reason recorded.
+- **Small fields kept, field statistics suppressed.** Races with fewer than
+  `MIN_FIELD_FOR_STATS` (5) finishers still show raw times and pace; z-score and
+  percentile are withheld, because a z-score from a 2-person field is noise
+  presented as signal. Seven races are affected.
+
+## 11. Open questions
+
+1. **The TT course is not quite fixed.** Listed distances across the remaining
+   105 time trials cluster at 13.0–14.0 km (13.0, 13.1, 13.5, 13.6, 13.62, 13.8,
+   13.9, 14.0). Earlier the assumption was a single fixed course. Pace normalises
+   this, but trends may need grouping by route if the variation is real rather
+   than remeasurement of the same road.
 2. **Do athletes ever change their entered name** between seasons (e.g. `Kev` one
    year, `Kevin G` the next)? Claims handle it, but it affects how much manual
    claiming is needed up front.

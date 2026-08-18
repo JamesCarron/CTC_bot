@@ -66,7 +66,7 @@ def save(
     (raw_dir / f"{code}.html").write_text(html, encoding="utf-8")
 
     event = rc.parse(html, code)
-    classification = cls.classify(event)
+    classification = cls.classify(event, extra)
 
     payload = event.to_dict()
     if extra:
@@ -86,6 +86,31 @@ def save(
 def ingest(code: str, *, data_dir: Path | None = None) -> StoredEvent:
     """Fetch an event from RaceClocker and store it."""
     return save(rc.fetch(code), code, data_dir=data_dir)
+
+
+def reclassify_all(*, data_dir: Path | None = None) -> int:
+    """Re-parse and re-classify every stored event from its archived HTML.
+
+    This is why raw pages are kept: a change to parsing or classification can
+    be replayed across the whole history offline, without re-fetching anything
+    from RaceClocker. Listing metadata already captured is preserved.
+    """
+    raw_dir, events_dir = _dirs(data_dir)
+    updated = 0
+    for path in sorted(events_dir.glob("*.json")):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        code = payload["code"]
+        raw_path = raw_dir / f"{code}.html"
+        if not raw_path.exists():
+            continue
+        save(
+            raw_path.read_text(encoding="utf-8"),
+            code,
+            data_dir=data_dir,
+            extra=payload.get("listing"),
+        )
+        updated += 1
+    return updated
 
 
 def load_all(*, data_dir: Path | None = None) -> list[StoredEvent]:

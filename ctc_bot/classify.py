@@ -6,8 +6,13 @@ line, because their results are not comparable:
 * **Time trial (TT)** - Tuesdays, a single timed leg (start -> finish).
 * **Aquathon** - Thursdays, two timed legs (start -> transition -> finish).
 
-Three independent signals are scored and cross-checked rather than trusting any
-one of them. Real timing data is messy: a session can be mislabelled, a marshal
+Signals are scored and cross-checked rather than trusting any one of them, with
+one exception: the admin console states each event's start type outright
+("Time trial", "Mass start (1 split)"). That is recorded by the timing system
+itself rather than inferred from results, so when present it is authoritative
+and settles the classification on its own.
+
+The remaining three signals are cross-checked against each other. Real timing data is messy: a session can be mislabelled, a marshal
 can miss a split, or an event can be rescheduled off its usual weekday. When the
 signals disagree we return ``UNKNOWN`` with the disagreement recorded, so the
 event surfaces for review instead of quietly polluting an athlete's trend.
@@ -73,12 +78,38 @@ def _from_title(title: str | None) -> str | None:
     return None
 
 
-def classify(event) -> Classification:
+def from_listing(listing: dict | None) -> str | None:
+    """Read the race format straight from the admin console's own metadata.
+
+    ``"Mass start (1 split)"`` means an intermediate timing point, so two timed
+    legs - an aquathon. ``"Time trial"`` means individual starts and no
+    intermediate point - the cycling time trial.
+    """
+    if not listing:
+        return None
+
+    splits = listing.get("intermediate_splits")
+    if splits == 1:
+        return AQUATHON
+    if splits == 0:
+        return TIME_TRIAL
+
+    start_type = (listing.get("start_type") or "").strip().lower()
+    if start_type.startswith("mass start"):
+        return AQUATHON
+    if start_type.startswith("time trial"):
+        return TIME_TRIAL
+    return None
+
+
+def classify(event, listing: dict | None = None) -> Classification:
     """Classify an :class:`~ctc_bot.raceclocker.Event`.
 
-    Requires at least two agreeing signals with none dissenting to be
-    considered confident.
+    The admin console's stated start type settles it outright when available.
+    Otherwise at least two agreeing signals with none dissenting are required
+    to be considered confident.
     """
+    stated = from_listing(listing)
     weekday = weekday_of(event.date_text)
 
     signals: dict[str, str | None] = {
@@ -87,8 +118,22 @@ def classify(event) -> Classification:
         "title": _from_title(event.title),
     }
 
-    votes = [value for value in signals.values() if value]
+    signals["listing"] = stated
+    votes = [
+        value for key, value in signals.items() if value and key != "listing"
+    ]
     notes: list[str] = []
+
+    if stated:
+        # Stated by the timing system, so a disagreeing inference is the thing
+        # that is wrong - but record it, because it is worth knowing about.
+        dissent = {value for value in votes if value != stated}
+        if dissent:
+            notes.append(
+                "admin console says "
+                f"{stated}; inferred signals suggested {', '.join(sorted(dissent))}"
+            )
+        return Classification(stated, True, signals, notes)
 
     if weekday and weekday not in WEEKDAY_SERIES:
         notes.append(f"event ran on a {weekday}, outside the usual Tue/Thu pattern")

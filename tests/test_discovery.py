@@ -9,7 +9,9 @@ from pathlib import Path
 
 import pytest
 
+from ctc_bot import classify as cls
 from ctc_bot import discovery
+from ctc_bot import raceclocker as rc
 
 FIXTURE = Path(__file__).parent / "fixtures_my_events.html"
 
@@ -117,3 +119,57 @@ def test_split_and_start_parsing(start_type, splits, mass):
     listing = discovery.Listing(index=0, layout="EventCard", start_type=start_type)
     assert listing.intermediate_splits == splits
     assert listing.mass_start is mass
+
+
+# ---- the admin console's stated race format ------------------------------
+
+
+def test_listing_settles_classification_outright():
+    """The console states the start type, so it need not be inferred."""
+    assert cls.from_listing({"intermediate_splits": 1}) == cls.AQUATHON
+    assert cls.from_listing({"intermediate_splits": 0}) == cls.TIME_TRIAL
+    assert cls.from_listing({"start_type": "Mass start (1 split)"}) == cls.AQUATHON
+    assert cls.from_listing({"start_type": "Time trial "}) == cls.TIME_TRIAL
+    assert cls.from_listing({}) is None
+    assert cls.from_listing(None) is None
+
+
+def test_listing_overrides_a_misleading_weekday():
+    """A Tuesday aquathon is still an aquathon.
+
+    Real case: an event titled "Aquathon" ran on Tuesday 10 Mar '26. Weekday
+    said time trial, structure said aquathon, so inference alone deadlocked at
+    `unknown`. The console states "Mass start (1 split)", which settles it.
+    """
+    event = rc.Event(
+        code="tues0001",
+        title="Aquathon",
+        date_text="Tuesday 10 Mar '26, 15:00",
+        distance=4.0,
+        distance_unit="km",
+        results=[
+            {"TmSplit1": "15:00:00", "TmSplit2": "15:12:00", "TmSplit5": "15:30:00"}
+        ],
+    )
+    assert cls.classify(event).race_type == cls.UNKNOWN  # inference deadlocks
+
+    decided = cls.classify(event, {"start_type": "Mass start (1 split)", "intermediate_splits": 1})
+    assert decided.race_type == cls.AQUATHON
+    assert decided.confident
+    assert any("admin console says" in note for note in decided.notes)
+
+
+def test_listing_agreement_records_no_dissent():
+    event = rc.Event(
+        code="thur0001",
+        title="Aquathon 18th June",
+        date_text="Thursday 18 Jun '26, 19:00",
+        distance=4.0,
+        distance_unit="km",
+        results=[
+            {"TmSplit1": "19:00:00", "TmSplit2": "19:12:00", "TmSplit5": "19:30:00"}
+        ],
+    )
+    decided = cls.classify(event, {"intermediate_splits": 1})
+    assert decided.race_type == cls.AQUATHON
+    assert decided.notes == []

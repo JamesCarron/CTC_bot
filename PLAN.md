@@ -209,9 +209,12 @@ invalidate history:
 - **Rank percentile** — robust and easy to read.
 - **Personal best** markers.
 
-Distances come from `data/courses.json` (admin-editable), **not** from the page:
-RaceClocker reports the aquathon as `8.0 km` when the real course is 4.1 km.
-Trusting it would put every aquathon pace out by roughly 2x.
+Distances come from `data/courses.json` (admin-editable), **not** from the page.
+Two reasons, both found in the real history: RaceClocker reports the aquathon as
+`8.0 km` against a real 4.1 km course (~2x error), and the time trial's listed
+distance drifts across 13.0–14.0 km between events. The configured distance is
+used for **every** event of that type, so a 25-minute ride always scores the same
+speed regardless of which device measured that night's course.
 
 Trends are drawn **within a series**, never pooled. `DNF`/`DNS` are excluded
 from trends and shown as gaps, never coerced to zero.
@@ -273,11 +276,15 @@ anything new, re-resolves identity and rebuilds the dashboard.
 
 ## 11. Open questions
 
-1. **The TT course is not quite fixed.** Listed distances across the remaining
-   105 time trials cluster at 13.0–14.0 km (13.0, 13.1, 13.5, 13.6, 13.62, 13.8,
-   13.9, 14.0). Earlier the assumption was a single fixed course. Pace normalises
-   this, but trends may need grouping by route if the variation is real rather
-   than remeasurement of the same road.
+1. ~~The TT course is not quite fixed.~~ **Decided: the time trial is 13 km.**
+   Listed distances across the 105 time trials drift between 13.0 and 14.0 km
+   (13.0, 13.1, 13.5, 13.6, 13.62, 13.8, 13.9, 14.0) — almost certainly the same
+   road measured by different devices over seven years, not eight courses. A
+   single configured distance is used for every event of that type, so no
+   phantom variation enters the trends. Admin-changeable via `ctc courses`.
+
+   Still worth confirming eventually whether the route ever genuinely changed —
+   if it did, those events would need grouping separately.
 2. **Do athletes ever change their entered name** between seasons (e.g. `Kev` one
    year, `Kevin G` the next)? Claims handle it, but it affects how much manual
    claiming is needed up front.

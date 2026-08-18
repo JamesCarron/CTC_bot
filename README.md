@@ -30,7 +30,10 @@ instant.
 | `ctc check-login` | Verify the stored credentials by logging in |
 | `ctc forget-login` | Remove the stored credentials |
 | `ctc doctor` | Check TLS, credentials, login and stored events |
+| `ctc backfill` | Pull all events from the admin console into the local store |
 | `ctc events` | List stored events (`ctc events dd7293a5` for one field) |
+| `ctc claim` | Claim your results by first name (`ctc claim -- James`) |
+| `ctc courses` | Show or change the configured course distances |
 | `ctc test` | Run the test suite |
 
 <details>
@@ -123,8 +126,12 @@ These are all verified against real pages, not assumptions:
   Sinead; `Age`, `Club`, `Cat` and `Wave` are empty or defaults. The name string
   is the only identifying field, which is why identity is claimed rather than
   inferred.
-- **The published aquathon distance is wrong** — `8.0 km` against a real 4.1 km
-  course. Distances come from `ctc_bot/config.py` / `data/courses.json`.
+- **Per-event distances are not trusted.** The aquathon page says `8.0 km`
+  against a real 4.1 km course, and across 105 time trials the listed distance
+  drifts between 13.0 and 14.0 km — the same road measured by different devices
+  over seven years. One distance is configured per race type and used for every
+  event of that type: the time trial is **13 km** by decision. Change it with
+  `ctc courses -- --set time_trial:Bike=13.4`.
 - **TLS on this machine needs `truststore`.** Something here inspects TLS and
   presents its own root CA, trusted by Windows but absent from certifi, so plain
   `requests` fails `CERTIFICATE_VERIFY_FAILED` on *every* host. `ctc_bot`

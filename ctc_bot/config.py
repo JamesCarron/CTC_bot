@@ -1,12 +1,24 @@
 """Course configuration for the club's two race series.
 
-RaceClocker's published ``Distance`` field is **not trusted**. The sample
-aquathon reports ``8.0 km``, but the real course is 600 m swim + 3.5 km run
-(4.1 km total) - taking the page at face value would put every aquathon pace
-out by roughly a factor of two.
+RaceClocker's per-event ``Distance`` field is **not trusted**, for two reasons
+found in the club's real history:
 
-Distances therefore live here, admin-editable via ``data/courses.json``, which
-overrides these defaults when present.
+* The sample aquathon reports ``8.0 km`` against a real 600 m swim + 3.5 km run
+  (4.1 km). Taking it at face value puts every aquathon pace out by ~2x.
+* Across 105 time trials the listed distance drifts between 13.0 and 14.0 km
+  (13.0, 13.1, 13.5, 13.6, 13.62, 13.8, 13.9, 14.0) - almost certainly the same
+  road measured by different devices over seven years, not eight courses. Left
+  alone it would inject up to 7% of phantom variation into every pace trend,
+  larger than most athletes' year-on-year improvement.
+
+So one distance is configured per race type and used for **every** event of
+that type. The club time trial is 13 km by decision.
+
+Distances are admin-editable via ``data/courses.json``, which overrides these
+defaults when present:
+
+    ctc courses              # show the configured courses
+    ctc courses -- --set time_trial:Bike=13.4
 """
 
 from __future__ import annotations
@@ -89,3 +101,20 @@ def save_courses(courses: dict[str, Course], path: Path | None = None) -> Path:
 
 def course_for(race_type: str, courses: dict[str, Course] | None = None) -> Course | None:
     return (courses or load_courses()).get(race_type)
+
+
+def distance_km(race_type: str, courses: dict[str, Course] | None = None) -> float | None:
+    """The configured distance for a race type.
+
+    This is the authority for every pace and speed calculation. The distance
+    printed on an individual event page is deliberately ignored - see the
+    module docstring.
+    """
+    course = course_for(race_type, courses)
+    return course.distance_km if course else None
+
+
+def leg_distances_km(race_type: str, courses: dict[str, Course] | None = None) -> list[float]:
+    """Configured distance of each timed leg, in order."""
+    course = course_for(race_type, courses)
+    return [leg.distance_km for leg in course.legs] if course else []

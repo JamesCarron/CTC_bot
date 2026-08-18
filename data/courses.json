@@ -1,0 +1,24 @@
+{
+  "time_trial": {
+    "name": "Time trial",
+    "legs": [
+      {
+        "name": "Bike",
+        "distance_km": 13.0
+      }
+    ]
+  },
+  "aquathon": {
+    "name": "Aquathon",
+    "legs": [
+      {
+        "name": "Swim",
+        "distance_km": 0.6
+      },
+      {
+        "name": "Run",
+        "distance_km": 3.5
+      }
+    ]
+  }
+}

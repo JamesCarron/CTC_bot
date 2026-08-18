@@ -10,10 +10,38 @@ See [PLAN.md](PLAN.md) for architecture, verified findings and roadmap.
 
 ## Setup
 
+The project uses [pixi](https://pixi.sh) for a self-contained environment. It
+lives in `.pixi/` inside this folder — nothing is installed system-wide, and
+`pixi.lock` pins exact package versions.
+
+```bash
+ctc              # list the available commands
+ctc test         # run the test suite
+ctc doctor       # check TLS, credentials and stored events
+```
+
+`ctc.cmd` wraps pixi, so there is nothing to activate and no paths to remember.
+The first command solves the environment (a few minutes); everything after is
+instant.
+
+| Command | Does |
+|---|---|
+| `ctc login` | Store the RaceClocker login (password hidden, DPAPI-encrypted) |
+| `ctc check-login` | Verify the stored credentials by logging in |
+| `ctc forget-login` | Remove the stored credentials |
+| `ctc doctor` | Check TLS, credentials, login and stored events |
+| `ctc events` | List stored events (`ctc events dd7293a5` for one field) |
+| `ctc test` | Run the test suite |
+
+<details>
+<summary>Without pixi</summary>
+
 ```bash
 python -m pip install -r requirements.txt
 python -m pytest tests/ -q
 ```
+
+</details>
 
 ## Logging in
 
@@ -21,9 +49,9 @@ The app authenticates to RaceClocker itself. No browser, no automation tooling,
 no AI involved at runtime.
 
 ```bash
-python scripts/set_credentials.py            # store the login (password hidden)
-python scripts/set_credentials.py --check    # verify what is stored
-python scripts/set_credentials.py --delete   # remove it
+ctc login          # store the login (password typed hidden)
+ctc check-login    # verify what is stored
+ctc forget-login   # remove it
 ```
 
 The password is typed without echo, encrypted with **Windows DPAPI**, and
@@ -70,6 +98,9 @@ for row in rc.ranked(event.results)[:3]:                  # recomputed positions
 | `ctc_bot/credentials.py` | DPAPI-encrypted credential storage |
 | `ctc_bot/session.py` | Authenticated RaceClocker session |
 | `scripts/set_credentials.py` | Interactive, secure credential setup |
+| `scripts/doctor.py` | Environment/credential/login diagnostics |
+| `scripts/show_events.py` | Inspect stored events and results |
+| `pixi.toml`, `ctc.cmd` | Local environment and launcher |
 | `tests/fixtures_*.html` | Verbatim snapshots of real events, used as regression fixtures |
 | `data/raw/`, `data/events/` | Archived snapshots and parsed events (gitignored) |
 | `data/identity.json` | Athlete claims (gitignored — personal data; **back this up**) |

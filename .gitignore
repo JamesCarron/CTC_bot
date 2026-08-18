@@ -1,3 +1,7 @@
+# Pixi: the solved environment is large and regenerable from pixi.lock,
+# which IS committed so everyone resolves identical package versions.
+.pixi/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -24,3 +28,6 @@ out/*
 # Athlete claims: personal data, and local state rather than code.
 # Back this up separately - losing it loses every claim.
 data/identity.json
+# pixi environments
+.pixi/*
+!.pixi/config.toml

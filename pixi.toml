@@ -1,0 +1,45 @@
+[workspace]
+name = "CTC_bot"
+version = "0.2.0"
+description = "Triathlon club results tracker - RaceClocker events to per-athlete trend lines"
+authors = ["James Carron <jameshfcarron@gmail.com>"]
+channels = ["conda-forge"]
+platforms = ["win-64"]
+
+[dependencies]
+python = "3.12.*"
+requests = ">=2.31"
+jinja2 = ">=3.1"
+python-dateutil = ">=2.9"
+
+# Verify TLS against the Windows certificate store. This machine sits behind
+# something that inspects TLS and presents its own root CA, which certifi does
+# not carry - without this, every HTTPS call fails CERTIFICATE_VERIFY_FAILED.
+truststore = ">=0.9"
+
+# Encrypts the stored RaceClocker login with Windows DPAPI.
+pywin32 = ">=306"
+
+# Trend chart rendering.
+matplotlib = ">=3.8"
+
+[feature.dev.dependencies]
+pytest = ">=8.0"
+
+[environments]
+default = { features = ["dev"], solve-group = "default" }
+
+[tasks]
+# --- everyday use -----------------------------------------------------------
+
+login = { cmd = "python scripts/set_credentials.py", description = "Store the RaceClocker admin login (password hidden, encrypted with Windows DPAPI)" }
+check-login = { cmd = "python scripts/set_credentials.py --check", description = "Verify the stored credentials by logging in" }
+forget-login = { cmd = "python scripts/set_credentials.py --delete", description = "Remove the stored credentials" }
+
+test = { cmd = "pytest tests/ -q", description = "Run the test suite" }
+test-verbose = { cmd = "pytest tests/ -v", description = "Run the test suite with per-test output" }
+
+# --- diagnostics ------------------------------------------------------------
+
+doctor = { cmd = "python scripts/doctor.py", description = "Check TLS, credentials and stored events" }
+events = { cmd = "python scripts/show_events.py", description = "List the events currently stored locally" }

@@ -74,8 +74,21 @@ class Course:
     legs: list[Leg] = field(default_factory=list)
     routes: list[Route] = field(default_factory=list)
 
+    @property
+    def default_route(self) -> Route | None:
+        """The route assumed when an event advertises no distance at all."""
+        return self.routes[0] if self.routes else None
+
     def route_for(self, listed_km: float | None) -> Route | None:
-        """The route whose advertised range covers this event."""
+        """The route whose advertised range covers this event.
+
+        An event with **no** advertised distance falls back to the default
+        route, so one missing field does not split an athlete's history into a
+        separate series. An event advertising a distance that matches no route
+        stays unmatched, because that is genuinely odd and worth seeing.
+        """
+        if listed_km is None:
+            return self.default_route
         for route in self.routes:
             if route.matches(listed_km):
                 return route

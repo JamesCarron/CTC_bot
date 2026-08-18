@@ -36,6 +36,9 @@ login = { cmd = "python scripts/set_credentials.py", description = "Store the Ra
 check-login = { cmd = "python scripts/set_credentials.py --check", description = "Verify the stored credentials by logging in" }
 forget-login = { cmd = "python scripts/set_credentials.py --delete", description = "Remove the stored credentials" }
 
+dashboard = { cmd = "python scripts/dashboard.py", description = "Build the dashboard, serve it locally and open it in a browser" }
+build = { cmd = "python scripts/dashboard.py --build", description = "Build the dashboard HTML only, without a server" }
+
 courses = { cmd = "python scripts/courses.py", description = "Show or change the configured course distances" }
 claim = { cmd = "python scripts/claim.py", description = "Claim your results by first name (ctc claim -- James)" }
 backfill = { cmd = "python scripts/backfill.py", description = "Pull all events from the admin console into the local store" }

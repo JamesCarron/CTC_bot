@@ -21,7 +21,12 @@ param(
     [string]$User       = "admin",
     [string]$KeyFile    = "$env:USERPROFILE\.ssh\id_ed25519_hetzner",
     [string]$InfraPath  = "C:\GitHub\Applets\infra",
-    [switch]$NoPush
+    [switch]$NoPush,
+    # Read the password from stdin instead of prompting. For scripted use and
+    # for testing this file. Deliberately not a -Password parameter: that would
+    # put the secret in the command line, where it lands in PowerShell history
+    # and is visible to other processes.
+    [switch]$FromStdin
 )
 
 $ErrorActionPreference = "Stop"
@@ -36,22 +41,40 @@ if (-not (Test-Path $KeyFile)) { Fail "SSH key not found: $KeyFile" }
 
 # --- 1. prompt, hidden, twice ------------------------------------------------
 
-$first  = Read-Host "RaceClocker password" -AsSecureString
-$second = Read-Host "Confirm" -AsSecureString
-
 function Reveal($secure) {
     $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
     try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) }
     finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
 }
 
-$plain = Reveal $first
-if ($plain -ne (Reveal $second)) { Fail "Passwords did not match - nothing changed." }
+if ($FromStdin) {
+    # A pipe on Windows commonly delivers CRLF; ReadLine strips the LF and
+    # leaves the CR, which then travels all the way to the server as a real
+    # character of the password.
+    $plain = [Console]::In.ReadLine()
+    if ($null -ne $plain) { $plain = $plain.TrimEnd("`r", "`n") }
+    Write-Host "  reading password from stdin"
+} else {
+    $first  = Read-Host "RaceClocker password" -AsSecureString
+    $second = Read-Host "Confirm" -AsSecureString
+    $plain = Reveal $first
+    if ($plain -ne (Reveal $second)) { Fail "Passwords did not match - nothing changed." }
+}
 if ([string]::IsNullOrWhiteSpace($plain)) { Fail "Empty password - nothing changed." }
 if ($plain -match "[`r`n]") { Fail "Password contains a line break, which dotenv cannot hold." }
 
+# Fingerprint what we are about to send. The remote end reports what the
+# running container actually holds, and the two are compared below. Twice now a
+# problem has surfaced as "the password is rejected" when the real fault was the
+# value changing somewhere in transit - this makes that impossible to miss.
+$sha = [System.Security.Cryptography.SHA256]::Create()
+$localFp = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($plain)) |
+                  Select-Object -First 6 | ForEach-Object { $_.ToString("x2") })
+$sha.Dispose()
+
 Write-Host ""
 Write-Host "Updating the server..."
+Write-Host "  sending $($plain.Length) characters (fingerprint $localFp)"
 
 # --- 2-5. do the work on the box --------------------------------------------
 # Single-quoted here-string: PowerShell must not touch $ or backticks, they are
@@ -99,9 +122,11 @@ echo "  secret re-encrypted"
 
 # Confirm the value actually round-trips before touching the container - a
 # silent loss here would otherwise show up as "wrong password" much later.
-stored=$(sops -d "$enc" | awk -F= '/^CTC_RACECLOCKER_PASSWORD=/{print length($0)-length($1)-1}')
-[ -n "$stored" ] && [ "$stored" -gt 0 ] || { echo "password did not survive encryption - refusing"; exit 1; }
-echo "  stored and verified ($stored characters)"
+# Presence only. An exact character count here disagreed with the container's
+# by one - the arithmetic, not the value - and a diagnostic that contradicts the
+# authoritative fingerprint below is worse than no diagnostic at all.
+sops -d "$enc" | grep -q '^CTC_RACECLOCKER_PASSWORD=.'   || { echo "password did not survive encryption - refusing"; exit 1; }
+echo "  stored and re-encrypted"
 
 ./scripts/04-secrets.sh >/dev/null 2>&1
 echo "  decrypted to \$SECRETS_DIR"
@@ -116,10 +141,12 @@ sleep 15
 
 # Prove the new value actually reached the process, not just the file.
 docker exec tri-app-1 python -c "
-import os
-n = len(os.environ.get('CTC_RACECLOCKER_PASSWORD',''))
-print(f'  container sees {n} characters')
-raise SystemExit(0 if n else 3)
+import os, hashlib
+p = os.environ.get('CTC_RACECLOCKER_PASSWORD','')
+fp = hashlib.sha256(p.encode()).hexdigest()[:12]
+print(f'  container sees {len(p)} characters (fingerprint {fp})')
+print(f'FINGERPRINT={fp}')
+raise SystemExit(0 if p else 3)
 "
 
 # Verify against RaceClocker from inside the container, so this reports on the
@@ -132,13 +159,43 @@ raise SystemExit(0 if r.ok else 2)
 "
 '@
 
-# Pipe the password in as the first line of stdin.
-$plain | & ssh -i $KeyFile -o BatchMode=yes "$User@$ServerHost" $remote
-$sshCode = $LASTEXITCODE
+# The script is UPLOADED and then run, rather than passed as an ssh argument.
+# A multi-line bash script handed to ssh as one argv goes through Windows
+# argument quoting, which mangles the newlines and quoting - the first version
+# of this did exactly that and failed on the server before storing anything,
+# while reporting a generic error. Uploading sidesteps the quoting entirely,
+# and leaves stdin free for the password, which is the one thing that must not
+# travel as an argument.
+$local = Join-Path ([System.IO.Path]::GetTempPath()) ("ctc-set-pw-" + [guid]::NewGuid().ToString("N") + ".sh")
+$remotePath = "/tmp/ctc-set-pw-$([guid]::NewGuid().ToString('N')).sh"
+
+# LF endings: bash will not run a CRLF script.
+[System.IO.File]::WriteAllText($local, ($remote -replace "`r`n", "`n"), (New-Object System.Text.UTF8Encoding $false))
+
+try {
+    & scp -i $KeyFile -q $local "${User}@${ServerHost}:$remotePath"
+    if ($LASTEXITCODE -ne 0) { Fail "Could not upload the update script." }
+
+    # Password on stdin; the script path is the only argument.
+    $output = $plain | & ssh -i $KeyFile -o BatchMode=yes "$User@$ServerHost" "bash $remotePath; code=`$?; rm -f $remotePath; exit `$code" 2>&1
+    $sshCode = $LASTEXITCODE
+    $output | Where-Object { $_ -notmatch "^FINGERPRINT=" } | ForEach-Object { Write-Host $_ }
+    $remoteFp = ($output | Where-Object { $_ -match "^FINGERPRINT=" } |
+                 Select-Object -First 1) -replace "^FINGERPRINT=", ""
+}
+finally {
+    Remove-Item $local -Force -ErrorAction SilentlyContinue
+}
 
 # Drop the plaintext as soon as it is no longer needed.
 Set-Variable -Name plain -Value $null
 [System.GC]::Collect()
+
+if ($remoteFp -and $remoteFp -ne $localFp) {
+    Fail ("The value changed in transit: sent $localFp, the container holds $remoteFp. " +
+          "Something is altering the password on the way - do not trust this as a wrong-password error.")
+}
+if ($remoteFp) { Ok "Value arrived intact (fingerprint matches)." }
 
 if ($sshCode -ne 0) {
     if ($sshCode -eq 2) {

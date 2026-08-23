@@ -51,11 +51,8 @@ starts. This is separate from the server's deploy key.
 
 - `infra` → Settings → Actions → General → Access → *accessible from
   repositories owned by the user*.
-- `CTC_bot` → rename branch `master` → `main` (the workflow triggers on `main`):
-  ```bash
-  git branch -m master main && git push -u origin main
-  # then set the default branch to main in Settings → Branches, and delete master
-  ```
+- ~~rename branch `master` → `main`~~ **done** — `main` is pushed. Still set it
+  as the **default branch** in Settings → Branches, then delete `master`.
 - `CTC_bot` → Settings → Secrets → Actions → new secret **`INFRA_REPO_TOKEN`**:
   a fine-grained PAT, `contents: write`, scoped to `infra` only.
 
@@ -88,7 +85,7 @@ head -n3 core/secrets/*.enc.env         # should show sops metadata, not values
 > `05-core-stack.sh` force-recreates Traefik on every run anyway, which is what
 > picks up both the new bind mount and the new middleware.
 
-### 3. Push infra
+### 3. Push infra — **after** step 2, not before
 
 ```bash
 cd C:/GitHub/Applets/infra
@@ -96,6 +93,17 @@ git add apps/tri core/compose.yml core/traefik/dynamic/middlewares.yml core/secr
 git commit -m "Add tri (CTC_bot) app and its basicauth middleware"
 git push
 ```
+
+> ⚠️ **Order matters here.** `core/compose.yml` now bind-mounts
+> `${SECRETS_DIR}/htpasswd.secret` into Traefik. If that file does not exist when
+> the container is recreated, Docker creates a **directory** at that path instead
+> of failing — Traefik starts normally, and `tri-auth` then points at a directory
+> and cannot authenticate anybody. It does not error loudly; it just does not
+> work. That is the exact failure `CTC_READ_ONLY=1` exists to survive, but it is
+> better not to trigger it. Run step 2 first.
+>
+> If it does happen: `sudo rmdir $SECRETS_DIR/htpasswd.secret`, create the real
+> secret, then re-run `05-core-stack.sh`.
 
 Arcane will try to deploy `apps/tri` and fail — the image tag is still
 `REPLACE_WITH_SHA`. That is expected and harmless; step 4 fixes it.

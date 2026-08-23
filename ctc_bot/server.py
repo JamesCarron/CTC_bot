@@ -48,6 +48,7 @@ READ_ONLY = os.environ.get("CTC_READ_ONLY", "").strip().lower() in {"1", "true",
 _WRITE_PATHS = (
     "/api/claim", "/api/adopt", "/api/disown",
     "/api/edit-time", "/api/reset-time", "/api/add-result", "/api/remove-result",
+    "/api/opt-out",
 )
 
 
@@ -279,6 +280,8 @@ class _Handler(BaseHTTPRequestHandler):
                 )
             elif self.path == "/api/remove-result":
                 message = remove_result(str(request.get("additionId") or ""))
+            elif self.path == "/api/opt-out":
+                message = opt_out(athlete_id, request.get("name") or "")
             else:
                 if not (athlete_id and event and race_id):
                     self._json(
@@ -464,6 +467,35 @@ def remove_result(addition_id: str) -> str:
         raise LookupError("No such hand-added result.")
     corrections.save()
     return f"Removed the hand-added result from {removed.when}."
+
+
+def opt_out(athlete_id: str, display_name: str) -> str:
+    """Remove someone from the site at their own request.
+
+    Their results stay in the store and keep counting towards the field a race
+    is measured against - they did race, and dropping them would quietly change
+    everyone else's z-score and finishing position. They simply stop appearing
+    as a person: no name, no profile, no standings entry.
+
+    Reversible: the entry, including the name, is kept in identity.json so an
+    admin can undo it.
+    """
+    if not athlete_id:
+        raise ValueError("An athlete is required.")
+
+    registry = idn.Registry.load()
+    if registry.has_opted_out(athlete_id):
+        return "Already removed from the site."
+
+    name = display_name.strip() or registry.athletes.get(
+        athlete_id, idn.Athlete(athlete_id, athlete_id)
+    ).display_name
+    registry.opt_out(athlete_id, name)
+    registry.save()
+    return (
+        f"{name} removed from the site. The results stay in the club's records "
+        "and still count towards each race's field, but no longer appear here."
+    )
 
 
 def adopt_row(athlete_id: str, event: str, race_id: str) -> str:

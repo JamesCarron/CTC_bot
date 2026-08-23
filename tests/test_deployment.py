@@ -90,6 +90,7 @@ def test_read_only_covers_every_routed_write(monkeypatch):
     assert set(reloaded._WRITE_PATHS) == {
         "/api/claim", "/api/adopt", "/api/disown",
         "/api/edit-time", "/api/reset-time", "/api/add-result", "/api/remove-result",
+        "/api/opt-out",
     }
 
 

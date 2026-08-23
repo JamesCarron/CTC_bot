@@ -231,9 +231,15 @@ def test_page_makes_no_external_requests(page):
         assert marker not in page
 
 
-def test_page_declares_both_themes(page):
-    assert "prefers-color-scheme: dark" in page
-    assert '[data-theme="dark"]' in page
+def test_page_is_dark_only(page):
+    """One look, tested once.
+
+    A toggle meant every chart had to be checked against two surfaces, and the
+    light palette had three slots below 3:1 contrast that needed label relief.
+    """
+    assert "color-scheme: dark" in page
+    assert "prefers-color-scheme" not in page
+    assert 'id="theme"' not in page
 
 
 def test_page_has_a_table_view_for_every_chart(page):

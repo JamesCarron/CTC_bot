@@ -32,23 +32,8 @@ _TEMPLATE = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cork Tri Club — sign in</title>
 <style>
+  /* Dark only, matching the dashboard. */
   :root {
-    color-scheme: light;
-    --plane:#f9f9f7; --surface:#fcfcfb;
-    --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
-    --axis:#c3c2b7; --border:rgba(11,11,11,0.10);
-    --accent:#2a78d6; --bad:#d03b3b;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      color-scheme: dark;
-      --plane:#0d0d0d; --surface:#1a1a19;
-      --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
-      --axis:#383835; --border:rgba(255,255,255,0.10);
-      --accent:#3987e5; --bad:#e66767;
-    }
-  }
-  :root[data-theme="dark"] {
     color-scheme: dark;
     --plane:#0d0d0d; --surface:#1a1a19;
     --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;

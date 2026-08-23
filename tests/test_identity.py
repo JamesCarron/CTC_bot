@@ -292,3 +292,46 @@ def test_provisional_groups_are_not_verified(real_events):
 
 def test_trend_threshold_is_defined():
     assert idn.MIN_RACES_FOR_TREND == 3
+
+
+# ---- opting out ----------------------------------------------------------
+
+
+def test_opting_out_removes_the_person_but_not_the_result(real_events):
+    """They really did race: dropping the row would change everyone else's
+    z-score and finishing position behind their backs."""
+    registry = idn.Registry()
+    registry.opt_out("name:kathleen", "Kathleen")
+    resolutions = idn.resolve(real_events, registry)
+
+    kathleen = [r for r in resolutions.values() if r.source == idn.OPTED_OUT]
+    assert kathleen
+    assert all(not r.is_athlete for r in kathleen)
+    assert all(r.display_name == "" for r in kathleen)
+
+
+def test_a_claimed_athlete_can_opt_out(real_events):
+    registry = idn.Registry()
+    athlete = registry.claim("John Doyle", registry.search("John", real_events))
+    registry.opt_out(athlete.id, athlete.display_name)
+
+    resolutions = idn.resolve(real_events, registry)
+    assert not any(r.display_name == "John Doyle" for r in resolutions.values())
+
+
+def test_opting_out_is_reversible(real_events):
+    registry = idn.Registry()
+    registry.opt_out("name:kathleen", "Kathleen")
+    assert registry.has_opted_out("name:kathleen")
+    assert registry.opt_in("name:kathleen")
+    assert not registry.has_opted_out("name:kathleen")
+    assert any(
+        r.display_name == "Kathleen" for r in idn.resolve(real_events, registry).values()
+    )
+
+
+def test_opt_outs_survive_a_save(real_events, tmp_path):
+    registry = idn.Registry()
+    registry.opt_out("name:kathleen", "Kathleen")
+    path = registry.save(tmp_path / "identity.json")
+    assert idn.Registry.load(path).has_opted_out("name:kathleen")

@@ -338,32 +338,16 @@ _TEMPLATE = r"""<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cork Tri Club — results</title>
 <style>
+  /* Dark only. The theme toggle was removed: one look, tested once, and no
+     chance of a chart being drawn against a surface it was not checked on. */
   :root {
-    color-scheme: light;
-    --plane:#f9f9f7; --surface:#fcfcfb;
-    --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
-    --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,0.10);
-    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
-    --good:#006300; --bad:#d03b3b;
-    --radius:10px;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      color-scheme: dark;
-      --plane:#0d0d0d; --surface:#1a1a19;
-      --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
-      --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,0.10);
-      --s1:#3987e5; --s2:#d95926; --s3:#199e70;
-      --good:#0ca30c; --bad:#e66767;
-    }
-  }
-  :root[data-theme="dark"] {
     color-scheme: dark;
     --plane:#0d0d0d; --surface:#1a1a19;
     --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
     --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,0.10);
     --s1:#3987e5; --s2:#d95926; --s3:#199e70;
     --good:#0ca30c; --bad:#e66767;
+    --radius:10px;
   }
   * { box-sizing:border-box; }
   body {
@@ -534,7 +518,6 @@ _TEMPLATE = r"""<!doctype html>
   <h1>Cork Tri Club</h1>
   <span class="sub" id="headline"></span>
   <span class="spacer"></span>
-  <button id="theme" title="Switch light/dark">Theme</button>
   <a class="signout" href="/logout">Sign out</a>
 </header>
 
@@ -558,6 +541,12 @@ _TEMPLATE = r"""<!doctype html>
     <p class="honour">
       It runs on the honour system: anyone with the password can confirm or
       correct any result, so please only claim races you actually rode.
+    </p>
+    <p>
+      If you would rather not appear here at all, open your name and choose
+      <b>Remove from this site</b>. Your results stay in the club's own records
+      and still count towards each race's field, so nobody else's figures
+      change — you simply stop being listed.
     </p>
   </section>
 
@@ -625,14 +614,6 @@ function esc(s) {
     ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 }
 const year = (iso) => (iso || "").slice(0, 4);
-
-/* ---------- theme ---------- */
-$("theme").onclick = () => {
-  const root = document.documentElement;
-  const dark = getComputedStyle(root).getPropertyValue("--plane").trim() === "#0d0d0d";
-  root.setAttribute("data-theme", dark ? "light" : "dark");
-  renderSeries();
-};
 
 /* ---------- tooltip ---------- */
 const tip = $("tip");
@@ -953,7 +934,8 @@ function showAthlete(a) {
       </td>
       <td class="num">${fmt(r.speed)}</td>
       ${a.verified ? `<td class="num nowrap">${rowActions(r)}</td>` : ""}
-    </tr>`).join("")}</tbody></table></div>` + claimForm(a) + adoptPanel(a) + addRacePanel(a);
+    </tr>`).join("")}</tbody></table></div>`
+    + claimForm(a) + adoptPanel(a) + addRacePanel(a) + optOutPanel(a);
 
   $("athlete-panel").innerHTML = html;
   $("athlete-panel").querySelectorAll("button.year").forEach(b => {
@@ -984,6 +966,7 @@ function showAthlete(a) {
   });
   wireAdopt(a);
   wireAddRace(a);
+  wireOptOut(a);
   $("athlete-panel").querySelectorAll("circle[data-t]").forEach(c => {
     c.addEventListener("mousemove", e => showTip(e, c.dataset.t));
     c.addEventListener("mouseleave", hideTip);
@@ -1067,6 +1050,37 @@ function addRacePanel(a) {
     </div>
     <div class="msg" id="add-msg"></div>
   </div>`;
+}
+
+/* Anyone can ask to be taken off the site. Offered for unclaimed groups too:
+   somebody may want off without first proving which results are theirs. */
+function optOutPanel(a) {
+  return `<div class="claim">
+    <h2>Would you rather not be listed?</h2>
+    <p class="hint">
+      This removes ${esc(a.name)} from the site — no name, no history, no place
+      in the standings. The results stay in the club's own records and still
+      count towards each race's field, so nobody else's figures change. Ask an
+      admin if you want to be listed again.
+    </p>
+    <div class="row">
+      <button class="link-btn disown" id="optout-go">Remove ${esc(a.name)} from this site</button>
+    </div>
+    <div class="msg" id="optout-msg"></div>
+  </div>`;
+}
+
+function wireOptOut(a) {
+  const btn = $("optout-go");
+  if (!btn) return;
+  btn.onclick = () => {
+    if (!confirm(`Remove ${a.name} from this site?
+
+Results stay in the club's `
+                 + `records and still count towards each race's field, but will no `
+                 + `longer appear here. An admin can undo this.`)) return;
+    postJson("/api/opt-out", { athleteId: a.id, name: a.name }, btn, $("optout-msg"));
+  };
 }
 
 /* Adding or releasing a single result. Only offered once an athlete is

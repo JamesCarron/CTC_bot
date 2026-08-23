@@ -37,6 +37,7 @@ PROVISIONAL = "provisional"  # nobody has claimed it; grouped by exact name
 AMBIGUOUS = "ambiguous"  # name maps to more than one claimed athlete
 CONTESTED = "contested"  # two people share this name within a single event
 PLACEHOLDER = "placeholder"  # not a person's name at all
+OPTED_OUT = "opted_out"  # a real person who asked not to be listed
 
 # Only a claim, or a spelling learned from one, makes an identity trustworthy.
 VERIFIED_SOURCES = frozenset({CLAIMED, INFERRED})
@@ -168,8 +169,14 @@ class Resolution:
 
     @property
     def is_athlete(self) -> bool:
-        """Whether this row belongs to a trendable person at all."""
-        return self.source != PLACEHOLDER
+        """Whether this row belongs to a person the site may show.
+
+        Someone who has opted out is excluded here but deliberately still
+        counted in the field a race is measured against - they really did race,
+        and removing them would quietly change everyone else's z-score and
+        finishing position.
+        """
+        return self.source not in {PLACEHOLDER, OPTED_OUT}
 
     @property
     def may_be_several_people(self) -> bool:
@@ -185,8 +192,15 @@ class Resolution:
 class Registry:
     """The remembered set of athletes and their claimed rows."""
 
-    def __init__(self, athletes: dict[str, Athlete] | None = None):
+    def __init__(
+        self,
+        athletes: dict[str, Athlete] | None = None,
+        opted_out: dict[str, dict] | None = None,
+    ):
         self.athletes: dict[str, Athlete] = athletes or {}
+        # athlete id -> {"name": ..., "at": ...}. The name is kept so an admin
+        # can find the entry to reverse it; nothing about them is shown.
+        self.opted_out: dict[str, dict] = opted_out or {}
 
     # ---- persistence -------------------------------------------------
 
@@ -204,7 +218,7 @@ class Registry:
             )
             for athlete_id, spec in payload.get("athletes", {}).items()
         }
-        return cls(athletes)
+        return cls(athletes, payload.get("opted_out", {}))
 
     def save(self, path: Path | None = None) -> Path:
         identity_path = path or IDENTITY_PATH
@@ -213,6 +227,7 @@ class Registry:
             json.dumps(
                 {
                     "version": 1,
+                    "opted_out": self.opted_out,
                     "athletes": {
                         athlete_id: {
                             "display_name": athlete.display_name,
@@ -319,6 +334,24 @@ class Registry:
             )
         return athlete
 
+    # ---- opting out --------------------------------------------------
+
+    def opt_out(self, athlete_id: str, display_name: str) -> None:
+        """Record that this person does not want to appear on the site."""
+        from datetime import datetime
+
+        self.opted_out[athlete_id] = {
+            "name": display_name,
+            "at": datetime.now().isoformat(timespec="seconds"),
+        }
+
+    def opt_in(self, athlete_id: str) -> bool:
+        """Undo an opt-out. Returns True if there was one."""
+        return self.opted_out.pop(athlete_id, None) is not None
+
+    def has_opted_out(self, athlete_id: str | None) -> bool:
+        return bool(athlete_id) and athlete_id in self.opted_out
+
     def release(self, athlete_id: str, event: str, race_id: str) -> None:
         athlete = self.athletes.get(athlete_id)
         if athlete:
@@ -376,13 +409,25 @@ def resolve(stored_events, registry: Registry) -> dict[tuple[str, str], Resoluti
 
             owner = registry.claim_owner(stored.code, race_id)
             if owner:
+                if registry.has_opted_out(owner):
+                    resolutions[key] = Resolution(None, "", OPTED_OUT)
+                    continue
                 resolutions[key] = Resolution(
                     owner, registry.athletes[owner].display_name, CLAIMED
                 )
                 continue
 
+            # An unclaimed group can opt out too - somebody may want off the
+            # site without first proving which results are theirs.
+            if registry.has_opted_out(f"name:{name}"):
+                resolutions[key] = Resolution(None, "", OPTED_OUT)
+                continue
+
             owners = registry.athletes_using(name)
             if len(owners) == 1:
+                if registry.has_opted_out(owners[0].id):
+                    resolutions[key] = Resolution(None, "", OPTED_OUT)
+                    continue
                 resolutions[key] = Resolution(
                     owners[0].id, owners[0].display_name, INFERRED
                 )

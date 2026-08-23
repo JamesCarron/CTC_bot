@@ -9,8 +9,9 @@
 #   2. Pipe it to the server on stdin. The remote script reads one line and
 #      exports it; the value is never in argv, so it never appears in `ps`.
 #   3. Decrypt, substitute the one line, re-encrypt, shred the temporaries.
-#   4. Re-run 04-secrets.sh and restart the container.
-#   5. Verify the login actually works, from inside the container.
+#   4. Re-run 04-secrets.sh and RECREATE the container - docker reads env_file
+#      only at creation, so a restart would keep serving the old value.
+#   5. Verify the container received it, then that RaceClocker accepts it.
 #   6. Copy the re-encrypted secret back here, commit and push, so the infra
 #      repo matches the server rather than drifting from it.
 # =============================================================================
@@ -96,12 +97,30 @@ sops -e -i "$enc"
 grep -q 'ENC\[' "$enc" || { echo "re-encryption produced no ciphertext - refusing"; exit 1; }
 echo "  secret re-encrypted"
 
+# Confirm the value actually round-trips before touching the container - a
+# silent loss here would otherwise show up as "wrong password" much later.
+stored=$(sops -d "$enc" | awk -F= '/^CTC_RACECLOCKER_PASSWORD=/{print length($0)-length($1)-1}')
+[ -n "$stored" ] && [ "$stored" -gt 0 ] || { echo "password did not survive encryption - refusing"; exit 1; }
+echo "  stored and verified ($stored characters)"
+
 ./scripts/04-secrets.sh >/dev/null 2>&1
 echo "  decrypted to \$SECRETS_DIR"
 
-docker restart tri-app-1 >/dev/null
-echo "  container restarted"
-sleep 12
+# RECREATE, not restart. Docker reads env_file once, when the container is
+# created; `docker restart` reuses the environment baked in at that moment and
+# would silently keep serving the old (empty) password.
+cd /opt/infra
+docker compose --env-file config.env -f apps/tri/compose.yml -p tri up -d --force-recreate >/dev/null 2>&1
+echo "  container recreated"
+sleep 15
+
+# Prove the new value actually reached the process, not just the file.
+docker exec tri-app-1 python -c "
+import os
+n = len(os.environ.get('CTC_RACECLOCKER_PASSWORD',''))
+print(f'  container sees {n} characters')
+raise SystemExit(0 if n else 3)
+"
 
 # Verify against RaceClocker from inside the container, so this reports on the
 # credential the app will actually use rather than one we hope matches.
@@ -123,7 +142,10 @@ Set-Variable -Name plain -Value $null
 
 if ($sshCode -ne 0) {
     if ($sshCode -eq 2) {
-        Fail "The password was stored but RaceClocker rejected it. Re-run with the right one."
+        Fail "Stored, and the container received it, but RaceClocker rejected it. Check the password."
+    }
+    if ($sshCode -eq 3) {
+        Fail "Stored, but the container did not pick it up. Check `docker logs tri-app-1`."
     }
     Fail "Server update failed (exit $sshCode). Nothing else was changed."
 }

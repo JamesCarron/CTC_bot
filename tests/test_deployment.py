@@ -240,3 +240,52 @@ def test_head_is_answered_like_get():
     assert "self.do_GET()" in source
     # And it must suppress the body, not just the write.
     assert "if not self._head_only:" in source
+
+
+# ---- the password-setting script -----------------------------------------
+
+
+def test_password_script_recreates_rather_than_restarts():
+    """docker reads env_file at container CREATION only.
+
+    `docker restart` reuses the environment baked in at that moment, so a newly
+    stored password never reaches the process - it silently keeps serving the
+    old one, and the symptom is "the correct password is rejected". This was a
+    real bug, found after the first live run.
+    """
+    from pathlib import Path
+
+    script = Path(__file__).parent.parent / "scripts" / "set_server_password.ps1"
+    body = script.read_text(encoding="utf-8")
+
+    assert "--force-recreate" in body
+    assert "docker restart tri-app-1" not in body
+
+
+def test_password_script_verifies_the_container_received_it():
+    """Storing the secret is not the same as the process seeing it."""
+    from pathlib import Path
+
+    body = (
+        Path(__file__).parent.parent / "scripts" / "set_server_password.ps1"
+    ).read_text(encoding="utf-8")
+
+    # round-trip through encryption
+    assert "password did not survive encryption" in body
+    # and actually present in the running container's environment
+    assert "container sees" in body
+    # only then, whether RaceClocker accepts it
+    assert "session.check()" in body
+
+
+def test_password_script_never_puts_the_secret_in_argv():
+    """On the server, argv is readable from ps by every local user."""
+    from pathlib import Path
+
+    body = (
+        Path(__file__).parent.parent / "scripts" / "set_server_password.ps1"
+    ).read_text(encoding="utf-8")
+
+    assert 'ENVIRON["PW"]' in body      # not awk -v
+    assert "IFS= read -r PW" in body    # arrives on stdin
+    assert "awk -v pw=" not in body

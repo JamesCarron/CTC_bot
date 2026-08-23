@@ -92,6 +92,10 @@ def build_payload(stored_events, registry: idn.Registry) -> dict:
                     "z": round(performance.z_score, 2) if performance.z_score is not None else None,
                     "pct": round(performance.percentile) if performance.percentile is not None else None,
                     "pb": performance.is_personal_best,
+                    "raceId": performance.race_id,
+                    # Only a directly claimed row can be released again; an
+                    # inferred one follows the name, not a decision about it.
+                    "claimed": performance.source == idn.CLAIMED,
                     "legs": [round(x, 1) for x in performance.leg_seconds],
                 }
             )
@@ -393,6 +397,11 @@ _TEMPLATE = r"""<!doctype html>
   .claim .msg { font-size:13px; margin-top:8px; }
   .claim .steps { margin:8px 0 10px; padding-left:20px; }
   .claim .steps li { margin:3px 0; }
+  .link-btn { background:none; border:0; padding:2px 6px; color:var(--s1);
+              font-size:12.5px; cursor:pointer; border-radius:6px; }
+  .link-btn:hover { background:var(--plane); text-decoration:underline; }
+  .link-btn.disown { color:var(--bad); }
+  .link-btn:disabled { opacity:.5; cursor:default; text-decoration:none; }
 </style>
 </head>
 <body>
@@ -712,12 +721,17 @@ function showAthlete(a) {
   </figure>
   <h3 class="table-head">All ${esc(s.label)} results, most recent first</h3>
   <div class="scroll"><table>
-    <thead><tr><th>Date</th><th class="num">Time</th><th class="num">km/h</th></tr></thead>
+    <thead><tr><th>Date</th><th class="num">Time</th><th class="num">km/h</th>
+      ${a.verified ? "<th></th>" : ""}</tr></thead>
     <tbody>${allRuns.slice().reverse().map(r => `<tr>
       <td>${r.date}</td>
       <td class="num">${r.time}${r.pb ? ' <span class="pill pb">PB</span>' : ""}</td>
       <td class="num">${fmt(r.speed)}</td>
-    </tr>`).join("")}</tbody></table></div>` + claimForm(a);
+      ${a.verified ? `<td class="num">${r.claimed
+        ? `<button class="link-btn disown" data-e="${esc(r.event)}" data-r="${esc(r.raceId)}"
+             title="Return this result to the name on the entry list">Not mine</button>`
+        : `<span class="pill" title="Matched by name, not individually confirmed">by name</span>`}</td>` : ""}
+    </tr>`).join("")}</tbody></table></div>` + claimForm(a) + adoptPanel(a);
 
   $("athlete-panel").innerHTML = html;
   $("athlete-panel").querySelectorAll("button.year").forEach(b => {
@@ -726,6 +740,10 @@ function showAthlete(a) {
       showAthlete(a);
     };
   });
+  $("athlete-panel").querySelectorAll("button.disown").forEach(b => {
+    b.onclick = () => postRow("/api/disown", a, b.dataset.e, b.dataset.r, b);
+  });
+  wireAdopt(a);
   $("athlete-panel").querySelectorAll("circle[data-t]").forEach(c => {
     c.addEventListener("mousemove", e => showTip(e, c.dataset.t));
     c.addEventListener("mouseleave", hideTip);
@@ -761,6 +779,85 @@ function claimForm(a) {
     </div>
     <div class="msg" id="claim-msg"></div>
   </div>`;
+}
+
+/* Adding or releasing a single result. Only offered once an athlete is
+   confirmed: both actions edit that person's claims, and an unconfirmed group
+   has none to edit. */
+function adoptPanel(a) {
+  if (!a.verified) return "";
+  return `<div class="claim">
+    <h2>Add a result that is missing</h2>
+    <p class="hint">
+      Search by first name for a result recorded under a different spelling —
+      an initial, a nickname, a typo — and attach it. Use <b>Not mine</b> in the
+      table above to release one that is not yours; it goes straight back to the
+      name printed on the entry list.
+    </p>
+    <div class="row">
+      <input type="search" id="adopt-q" placeholder="First name, e.g. James" style="flex:1 1 220px">
+      <button id="adopt-find">Find results</button>
+    </div>
+    <div id="adopt-results"></div>
+    <div class="msg" id="row-msg"></div>
+  </div>`;
+}
+
+async function postRow(url, a, event, raceId, button) {
+  const msg = $("row-msg") || $("claim-msg");
+  if (button) button.disabled = true;
+  if (msg) msg.textContent = "Saving…";
+  try {
+    const res = await fetch(url, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ athleteId: a.id, event, raceId }),
+    });
+    const out = await res.json();
+    if (msg) {
+      msg.innerHTML = out.ok
+        ? `<span class="good">${esc(out.message)}</span> Refresh to see it applied.`
+        : `<span class="bad">${esc(out.message || "Could not save.")}</span>`;
+    }
+  } catch (e) {
+    if (msg) msg.innerHTML = `<span class="bad">No server — open this page via <code>ctc dashboard</code>.</span>`;
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+function wireAdopt(a) {
+  const find = $("adopt-find");
+  if (!find) return;
+  const run = async () => {
+    const q = $("adopt-q").value.trim();
+    const box = $("adopt-results");
+    if (q.length < 2) { box.innerHTML = `<p class="hint">Type at least two letters.</p>`; return; }
+    box.innerHTML = `<p class="hint">Searching…</p>`;
+    try {
+      const res = await fetch("/api/rows?q=" + encodeURIComponent(q));
+      const out = await res.json();
+      const rows = (out.rows || []).filter(r => r.ownerId !== a.id);
+      box.innerHTML = rows.length
+        ? `<div class="scroll"><table><thead><tr><th>Date</th><th>Name</th>
+             <th class="num">Time</th><th>Currently</th><th></th></tr></thead><tbody>` +
+          rows.map(r => `<tr>
+            <td>${esc((r.date || "").replace(/,.*$/, ""))}</td>
+            <td>${esc(r.name)}</td>
+            <td class="num">${esc(r.time)}</td>
+            <td>${r.owner ? esc(r.owner) : '<span style="color:var(--muted)">unclaimed</span>'}</td>
+            <td class="num"><button class="link-btn adopt"
+                 data-e="${esc(r.event)}" data-r="${esc(r.raceId)}">Add</button></td>
+          </tr>`).join("") + "</tbody></table></div>"
+        : `<p class="hint">Nothing else found for that name.</p>`;
+      box.querySelectorAll("button.adopt").forEach(b => {
+        b.onclick = () => postRow("/api/adopt", a, b.dataset.e, b.dataset.r, b);
+      });
+    } catch (e) {
+      box.innerHTML = `<p class="hint">No server — open this page via <code>ctc dashboard</code>.</p>`;
+    }
+  };
+  find.onclick = run;
+  $("adopt-q").onkeydown = (e) => { if (e.key === "Enter") run(); };
 }
 
 function wireClaim(a) {

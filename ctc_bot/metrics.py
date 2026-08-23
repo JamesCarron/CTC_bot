@@ -74,6 +74,7 @@ class Performance:
     display_name: str
     verified: bool
     event_code: str
+    race_id: str
     event_title: str | None
     when: date
     race_type: str
@@ -82,6 +83,7 @@ class Performance:
     seconds: float
     position: int
     field_size: int
+    source: str = ""
     contested: bool = False
     leg_seconds: list[float] = field(default_factory=list)
     z_score: float | None = None
@@ -242,6 +244,7 @@ def build(stored_events, registry: idn.Registry) -> dict[str, Athlete]:
                 display_name=resolution.display_name,
                 verified=resolution.verified,
                 event_code=stored.code,
+                race_id=str(row["RaceID"]),
                 event_title=stored.title,
                 when=when,
                 race_type=stored.race_type,
@@ -250,6 +253,7 @@ def build(stored_events, registry: idn.Registry) -> dict[str, Athlete]:
                 seconds=seconds,
                 position=row["Position"],
                 field_size=field_size,
+                source=resolution.source,
                 contested=resolution.may_be_several_people,
                 leg_seconds=rc.leg_seconds(row),
             )

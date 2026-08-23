@@ -49,16 +49,22 @@ class _Handler(BaseHTTPRequestHandler):
     # ---- routes ----
 
     def do_GET(self) -> None:  # noqa: N802 - required name
-        if self.path in ("/", "/index.html", "/dashboard.html"):
+        from urllib.parse import parse_qs, urlparse
+
+        parsed = urlparse(self.path)
+        if parsed.path in ("/", "/index.html", "/dashboard.html"):
             path = dashboard.build()
             self._send(200, path.read_bytes(), "text/html; charset=utf-8")
-        elif self.path == "/api/health":
+        elif parsed.path == "/api/health":
             self._json(200, {"ok": True})
+        elif parsed.path == "/api/rows":
+            query = (parse_qs(parsed.query).get("q") or [""])[0]
+            self._json(200, {"ok": True, "rows": search_rows(query)})
         else:
             self._json(404, {"ok": False, "message": "Not found"})
 
     def do_POST(self) -> None:  # noqa: N802 - required name
-        if self.path != "/api/claim":
+        if self.path not in ("/api/claim", "/api/adopt", "/api/disown"):
             self._json(404, {"ok": False, "message": "Not found"})
             return
 
@@ -69,19 +75,157 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(400, {"ok": False, "message": "Could not read the request."})
             return
 
-        name = (request.get("name") or "").strip()
         athlete_id = (request.get("athleteId") or "").strip()
-        if not name or not athlete_id:
-            self._json(400, {"ok": False, "message": "A name and an athlete are both required."})
-            return
+        event = (request.get("event") or "").strip()
+        race_id = str(request.get("raceId") or "").strip()
 
         try:
-            message = claim_athlete(athlete_id, name)
+            if self.path == "/api/claim":
+                name = (request.get("name") or "").strip()
+                if not name or not athlete_id:
+                    self._json(
+                        400, {"ok": False, "message": "A name and an athlete are both required."}
+                    )
+                    return
+                message = claim_athlete(athlete_id, name)
+            else:
+                if not (athlete_id and event and race_id):
+                    self._json(
+                        400,
+                        {"ok": False, "message": "An athlete, event and result are all required."},
+                    )
+                    return
+                message = (
+                    adopt_row(athlete_id, event, race_id)
+                    if self.path == "/api/adopt"
+                    else disown_row(athlete_id, event, race_id)
+                )
         except LookupError as exc:
             self._json(404, {"ok": False, "message": str(exc)})
             return
 
         self._json(200, {"ok": True, "message": message})
+
+
+def _curated_events():
+    from . import curation
+
+    included, _ = curation.partition(store.load_all())
+    return included
+
+
+def _find_row(stored, race_id: str) -> dict | None:
+    return next(
+        (r for r in stored.event.results if str(r.get("RaceID")) == str(race_id)), None
+    )
+
+
+def _candidate(stored, row: dict) -> idn.Candidate:
+    return idn.Candidate(
+        event=stored.code,
+        event_title=stored.title,
+        date_text=stored.date_text,
+        race_type=stored.race_type,
+        race_id=str(row.get("RaceID")),
+        name=row.get("Name", ""),
+        bib=str(row.get("Bib", "")),
+        seconds=None,
+        position=None,
+    )
+
+
+def search_rows(query: str, limit: int = 60) -> list[dict]:
+    """Result rows whose first name matches, with whoever currently owns each.
+
+    Used by the dashboard to find a stray result and attach it to an athlete -
+    the case where somebody raced under a spelling nobody would think to look
+    for.
+    """
+    query = (query or "").strip()
+    if len(query) < 2:
+        return []
+
+    registry = idn.Registry.load()
+    events = _curated_events()
+    rows = []
+    for candidate in registry.search(query, events):
+        owner = (
+            registry.athletes[candidate.claimed_by].display_name
+            if candidate.claimed_by
+            else None
+        )
+        rows.append(
+            {
+                "event": candidate.event,
+                "raceId": candidate.race_id,
+                "name": candidate.name.strip(),
+                "date": candidate.date_text,
+                "title": candidate.event_title,
+                "raceType": candidate.race_type,
+                "time": candidate.time,
+                "owner": owner,
+                "ownerId": candidate.claimed_by,
+            }
+        )
+    rows.sort(key=lambda r: r["date"] or "", reverse=True)
+    return rows[:limit]
+
+
+def adopt_row(athlete_id: str, event: str, race_id: str) -> str:
+    """Attach one specific result to an already-confirmed athlete."""
+    registry = idn.Registry.load()
+    athlete = registry.athletes.get(athlete_id)
+    if athlete is None:
+        raise LookupError(
+            "Confirm who this athlete is first - an individual result can only "
+            "be added to a confirmed person."
+        )
+
+    stored = next((s for s in _curated_events() if s.code == event), None)
+    if stored is None:
+        raise LookupError("That event is not in the local store.")
+    row = _find_row(stored, race_id)
+    if row is None:
+        raise LookupError("That result is not in the event.")
+
+    name = (row.get("Name") or "").strip()
+    registry.claim(athlete.display_name, [_candidate(stored, row)], athlete_id=athlete_id)
+    registry.save()
+    return f"Added {name!r} from {stored.title} to {athlete.display_name}."
+
+
+def disown_row(athlete_id: str, event: str, race_id: str) -> str:
+    """Detach one result, returning it to the name printed on the entry list.
+
+    Nothing is deleted. Releasing the claim lets the row fall back to being
+    grouped by its original name, exactly as it was before anyone claimed it -
+    which is what makes a mistaken claim safe to undo.
+    """
+    registry = idn.Registry.load()
+    athlete = registry.athletes.get(athlete_id)
+    if athlete is None:
+        raise LookupError("No such athlete.")
+
+    claim = next((c for c in athlete.claims if c.key == (event, str(race_id))), None)
+    if claim is None:
+        raise LookupError("That result is not claimed by this athlete.")
+
+    original = claim.name.strip() or "(unnamed)"
+    registry.release(athlete_id, event, race_id)
+
+    # An athlete with nothing left is no longer a confirmed identity; leaving an
+    # empty shell behind would put a person with no races in the standings.
+    if not athlete.claims:
+        display = athlete.display_name
+        del registry.athletes[athlete_id]
+        registry.save()
+        return (
+            f"Released back to {original!r}. {display} had no other results, so "
+            "that identity is gone too."
+        )
+
+    registry.save()
+    return f"Released back to {original!r}, as printed on the entry list."
 
 
 def claim_athlete(athlete_id: str, display_name: str) -> str:
@@ -91,12 +235,8 @@ def claim_athlete(athlete_id: str, display_name: str) -> str:
     turns one of those groups into a real claim, which then teaches the spelling
     for future events.
     """
-    events = store.load_all()
     registry = idn.Registry.load()
-
-    from . import curation
-
-    included, _ = curation.partition(events)
+    included = _curated_events()
     resolutions = idn.resolve(included, registry)
 
     by_code = {stored.code: stored for stored in included}

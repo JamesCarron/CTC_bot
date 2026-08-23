@@ -345,3 +345,40 @@ def test_a_single_season_chart_is_labelled_by_month(page):
     """Every point in one season shares a year, so a year axis says nothing."""
     assert "seasons.length === 1" in page
     assert '"Jan","Feb","Mar"' in page
+
+
+# ---- intro, honour note, and the aquathon warning ------------------------
+
+
+def test_page_opens_with_no_athlete_selected(page):
+    """Opening on whoever sorts first implies the page is about them.
+
+    It also invites claiming the wrong person's races, which is the one
+    mistake that is tedious to undo.
+    """
+    assert "Pick an athlete" in page
+    assert "showAthlete(state.athlete ? people.find" in page
+
+
+def test_intro_explains_why_results_are_split_up(page):
+    """A visitor who does not know this reads the split histories as errors."""
+    assert 'class="intro"' in page
+    assert "entry sheet" in page
+
+
+def test_honour_system_is_stated(page):
+    """Anyone with the password can edit anything; say so rather than imply it."""
+    assert "honour system" in page
+    assert "only claim races you actually rode" in page
+
+
+def test_aquathon_carries_a_draft_warning(page):
+    """The aquathon side has had none of the curation the time trial has."""
+    assert "Rough draft." in page
+    assert "consolidate athletes" in page
+    assert 's.key === "aquathon"' in page   # and only there
+
+
+def test_the_warning_reads_as_a_warning(page):
+    assert ".warning {" in page
+    assert "border:1px solid var(--bad)" in page

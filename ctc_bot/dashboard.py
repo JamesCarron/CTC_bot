@@ -486,6 +486,26 @@ _TEMPLATE = r"""<!doctype html>
     h2 { font-size:14.5px; }
   }
 
+  .intro h2 { font-size:17px; margin:0 0 10px; }
+  .intro p { margin:0 0 10px; color:var(--ink-2); font-size:14px; max-width:68ch; }
+  .intro p:last-child { margin-bottom:0; }
+  .intro .honour {
+    color:var(--ink); border-left:3px solid var(--s1); padding:7px 11px;
+    background:var(--plane); border-radius:0 7px 7px 0;
+  }
+  /* Reserved for warnings about the data itself, not about one athlete. */
+  .warning {
+    border:1px solid var(--bad); border-left-width:4px; border-radius:0 9px 9px 0;
+    background:color-mix(in srgb, var(--bad) 8%, transparent);
+    padding:11px 14px; margin:0 0 18px; font-size:13.5px; color:var(--ink);
+  }
+  .warning strong { color:var(--bad); }
+  .empty {
+    border:1px dashed var(--axis); border-radius:10px; padding:26px 20px;
+    text-align:center; color:var(--ink-2); font-size:14px;
+  }
+  .empty b { display:block; color:var(--ink); font-size:15px; margin-bottom:5px; }
+
   .note { border-left:3px solid var(--s2); padding:6px 10px; margin:10px 0;
           color:var(--ink-2); font-size:13px; background:var(--plane); border-radius:0 6px 6px 0; }
   .claim { border:1px solid var(--border); border-radius:8px; padding:12px; margin-top:14px; }
@@ -519,7 +539,31 @@ _TEMPLATE = r"""<!doctype html>
 </header>
 
 <main>
+  <section class="intro">
+    <h2>Cork Tri Club results</h2>
+    <p>
+      Every club time trial and aquathon that RaceClocker has a record of, going
+      back to 2019 — around 150 races and a couple of thousand results, gathered
+      into one place so you can see how you are going rather than how one
+      evening went.
+    </p>
+    <p>
+      Results are matched only by the name written on the entry sheet, and that
+      name changes from week to week. Until somebody says otherwise, each
+      spelling looks like a different person, so most athletes here are split
+      across several entries with short, broken histories. Finding yourself and
+      confirming which results are yours is what joins them up — and it teaches
+      the site to recognise you automatically from then on.
+    </p>
+    <p class="honour">
+      It runs on the honour system: anyone with the password can confirm or
+      correct any result, so please only claim races you actually rode.
+    </p>
+  </section>
+
   <nav class="series-tabs" id="series-tabs" role="tablist" aria-label="Race series"></nav>
+
+  <div id="series-note"></div>
 
   <section>
     <h2 id="series-title"></h2>
@@ -650,14 +694,31 @@ function renderSeries() {
     `Pick an athlete to see their ${esc(s.label)} history. A fitted direction ` +
     `needs at least ${S.minRacesForTrend} races on this course.`;
 
+  renderNote(s);
   renderLatest(s);
   renderList();
   renderStandings();
 
+  // Deliberately nobody selected: opening on whoever happens to sort first
+  // implies the page is about them, and invites claiming the wrong person's
+  // races. The visitor picks.
   const people = athletesInSeries();
-  showAthlete(state.athlete
-    ? people.find(a => a.id === state.athlete.id) || people[0]
-    : people[0]);
+  showAthlete(state.athlete ? people.find(a => a.id === state.athlete.id) : null);
+}
+
+function renderNote(s) {
+  // The aquathon side has had none of the curation the time trial has: the
+  // implausible-result filter was tuned against bike times, and nobody has
+  // worked through the name variants. Saying so is better than letting the
+  // numbers imply a confidence they have not earned.
+  $("series-note").innerHTML = s.key === "aquathon"
+    ? `<div class="warning" role="note">
+         <strong>Rough draft.</strong> The aquathon results have had no
+         tidying up: false and mistimed results have not been removed, and no
+         attempt has been made to consolidate athletes who appear under several
+         names. Treat everything on this tab as indicative only.
+       </div>`
+    : "";
 }
 
 function renderLatest(s) {
@@ -808,7 +869,13 @@ function fitTrend(pts) {
 function showAthlete(a) {
   state.athlete = a || null;
   renderList();
-  if (!a) { $("athlete-panel").innerHTML = ""; return; }
+  if (!a) {
+    $("athlete-panel").innerHTML = `<div class="empty">
+      <b>Pick an athlete</b>
+      Search or scroll the list to see someone's history and trend.
+    </div>`;
+    return;
+  }
 
   const s = seriesOf(state.series);
   const allRuns = a.seriesRuns;

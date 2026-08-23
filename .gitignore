@@ -38,6 +38,9 @@ data/identity.json
 # state, not code, and it cannot be regenerated from RaceClocker.
 # Back this up alongside identity.json.
 data/overrides.json
+
+# Derived: rebuilt by the next sweep if lost, costing one slow sweep.
+data/listing_cache.json
 # pixi environments
 .pixi/*
 !.pixi/config.toml

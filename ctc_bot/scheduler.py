@@ -137,28 +137,57 @@ def poll_tonight(today: date | None = None) -> tuple[bool, str]:
 
 
 def sweep() -> str:
-    """Pull anything not already stored, and rebuild."""
+    """Pull anything not already stored, and rebuild.
+
+    A listing names an event only by a positional index, so learning its durable
+    code costs one authenticated request. Resolving all 228 every sweep, to find
+    that 209 are already stored, is the bulk of the work - so a cache maps each
+    listing to the code it resolved to last time, and only genuinely unknown
+    listings are fetched.
+    """
     from . import dashboard, discovery, session, store
 
     http = session.login()
     listings = discovery.fetch_listing(session=http)
     already = {stored.code for stored in store.load_all()}
 
-    added = failed = 0
+    cache = discovery.ListingCache.load()
+    # A title+date shared by two listings cannot identify either of them, so
+    # those are always resolved properly rather than guessed at.
+    ambiguous = cache.ambiguous_keys(listings)
+
+    added = failed = skipped = fetched = 0
     for listing in listings:
+        if discovery.ListingCache.key(listing) not in ambiguous:
+            hit, code = cache.lookup(listing)
+            # Skip only when the cache says we already hold it, or that it has
+            # no public code. A cached code we have NOT stored still needs
+            # fetching - that is the new-event case the sweep exists for.
+            if hit and (code is None or code in already):
+                skipped += 1
+                continue
+
         try:
             resolved = discovery.resolve(listing, session=http)
+            fetched += 1
         except Exception:
+            cache.record(listing, None)
             failed += 1
             continue
+
+        cache.record(listing, resolved.code)
         if resolved.code in already:
             continue
         store.save(resolved.html, resolved.code, extra=_listing_extra(listing))
         added += 1
         time.sleep(0.5)  # the same courtesy the backfill script shows
 
+    cache.save()
     dashboard.build_if_stale()
-    return f"{added} new event(s), {failed} unresolved, {len(listings)} listed"
+    return (
+        f"{added} new event(s); {fetched} fetched, {skipped} from cache, "
+        f"{failed} unresolved, {len(listings)} listed"
+    )
 
 
 # Kept for callers that just want "bring everything up to date".

@@ -17,14 +17,25 @@ which the public URL would not serve.
 
 from __future__ import annotations
 
+import json
 import re
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from pathlib import Path
 
 from . import raceclocker as rc
 from . import session as sess
 
 EVENT_RESULT_URL = "https://raceclocker.com/Event_Result.php?index={index}"
+
+CACHE_PATH = Path(__file__).resolve().parent.parent / "data" / "listing_cache.json"
+
+# An event with no public code is usually one that was never published, and that
+# does not change. Re-checking every one of them on every sweep is the bulk of
+# the wasted work - but "never" is too strong, since an event can be published
+# later, so they are retried occasionally instead.
+UNPUBLISHED_RETRY_DAYS = 30
 
 # Each entry begins with one of these; splitting on them keeps one entry's
 # fields from bleeding into the next.
@@ -169,6 +180,84 @@ def resolve(listing: Listing, *, session=None) -> Discovered:
             f"({listing.title!r}). The event may never have been published."
         )
     return Discovered(listing=listing, code=codes[0], html=html)
+
+
+class ListingCache:
+    """Remembers which public code each listing resolved to.
+
+    The sweep's expensive part is that a listing identifies an event only by a
+    positional index, so learning its durable code costs one authenticated
+    request each - 228 of them every sweep, to discover that 209 are already
+    stored.
+
+    The index cannot be the cache key: it is a position in the account's event
+    list and shifts whenever an event is added or removed. Title and date
+    together are stable, and are what a human would use to say "that is the
+    same race".
+
+    A key that matches more than one listing in a single run is never trusted -
+    two events genuinely sharing a title and date exist in this account, and
+    guessing between them would attach one event's results to the other.
+    """
+
+    def __init__(self, entries: dict | None = None):
+        self.entries: dict[str, dict] = entries or {}
+
+    @staticmethod
+    def key(listing: "Listing") -> str:
+        title = re.sub(r"\s+", " ", (listing.title or "").strip()).casefold()
+        return f"{(listing.date_text or '').strip()}|{title}"
+
+    @classmethod
+    def load(cls, path: Path | None = None) -> "ListingCache":
+        target = path or CACHE_PATH
+        if not target.exists():
+            return cls()
+        try:
+            payload = json.loads(target.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            return cls()  # a corrupt cache costs a slow sweep, never wrong data
+        return cls(payload.get("entries", {}))
+
+    def save(self, path: Path | None = None) -> Path:
+        target = path or CACHE_PATH
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(
+            json.dumps({"version": 1, "entries": self.entries}, indent=2), encoding="utf-8"
+        )
+        return target
+
+    def record(self, listing: "Listing", code: str | None) -> None:
+        self.entries[self.key(listing)] = {
+            "code": code,
+            "checked": datetime.now().isoformat(timespec="seconds"),
+        }
+
+    def lookup(self, listing: "Listing") -> tuple[bool, str | None]:
+        """Returns ``(is_a_usable_hit, code)``."""
+        entry = self.entries.get(self.key(listing))
+        if entry is None:
+            return False, None
+
+        if entry.get("code"):
+            return True, entry["code"]
+
+        # Known unpublished: honour it, but not forever.
+        try:
+            checked = datetime.fromisoformat(entry.get("checked", ""))
+        except ValueError:
+            return False, None
+        if datetime.now() - checked > timedelta(days=UNPUBLISHED_RETRY_DAYS):
+            return False, None
+        return True, None
+
+    def ambiguous_keys(self, listings) -> set[str]:
+        """Keys shared by more than one listing in this run."""
+        seen: dict[str, int] = {}
+        for listing in listings:
+            key = self.key(listing)
+            seen[key] = seen.get(key, 0) + 1
+        return {key for key, count in seen.items() if count > 1}
 
 
 def resolve_all(

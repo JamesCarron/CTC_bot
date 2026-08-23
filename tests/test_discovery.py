@@ -173,3 +173,109 @@ def test_listing_agreement_records_no_dissent():
     decided = cls.classify(event, {"intermediate_splits": 1})
     assert decided.race_type == cls.AQUATHON
     assert decided.notes == []
+
+
+# ---- the listing cache ---------------------------------------------------
+
+
+def _listing(index, title, date_text):
+    return discovery.Listing(index=index, layout="EventList", title=title, date_text=date_text)
+
+
+def test_cache_key_ignores_the_index():
+    """The index is a position in the account's list and shifts constantly."""
+    a = _listing(3, "CTC TT", "12 May '26")
+    b = _listing(97, "CTC TT", "12 May '26")
+    assert discovery.ListingCache.key(a) == discovery.ListingCache.key(b)
+
+
+def test_cache_key_normalises_title_whitespace_and_case():
+    a = _listing(1, "Cork  TT ", "12 May '26")
+    b = _listing(1, "cork tt", "12 May '26")
+    assert discovery.ListingCache.key(a) == discovery.ListingCache.key(b)
+
+
+def test_cache_key_separates_the_same_title_on_different_dates():
+    a = _listing(1, "Cork tt", "12 May '26")
+    b = _listing(2, "Cork tt", "19 May '26")
+    assert discovery.ListingCache.key(a) != discovery.ListingCache.key(b)
+
+
+def test_cache_returns_a_recorded_code():
+    cache = discovery.ListingCache()
+    listing = _listing(1, "CTC TT", "12 May '26")
+    cache.record(listing, "abc12345")
+    assert cache.lookup(listing) == (True, "abc12345")
+
+
+def test_cache_remembers_an_unpublished_event():
+    """19 events have no public code; re-checking them every sweep is the waste."""
+    cache = discovery.ListingCache()
+    listing = _listing(1, "New Race", "12 May '26")
+    cache.record(listing, None)
+    assert cache.lookup(listing) == (True, None)
+
+
+def test_unpublished_entries_are_retried_eventually():
+    """An event can be published later, so "no code" must not be permanent."""
+    from datetime import datetime, timedelta
+
+    cache = discovery.ListingCache()
+    listing = _listing(1, "New Race", "12 May '26")
+    cache.record(listing, None)
+    stale = datetime.now() - timedelta(days=discovery.UNPUBLISHED_RETRY_DAYS + 1)
+    cache.entries[discovery.ListingCache.key(listing)]["checked"] = stale.isoformat()
+    assert cache.lookup(listing) == (False, None)
+
+
+def test_a_code_entry_never_expires():
+    """A resolved code is durable; only the "not published" answer can change."""
+    from datetime import datetime, timedelta
+
+    cache = discovery.ListingCache()
+    listing = _listing(1, "CTC TT", "12 May '26")
+    cache.record(listing, "abc12345")
+    ancient = datetime.now() - timedelta(days=3650)
+    cache.entries[discovery.ListingCache.key(listing)]["checked"] = ancient.isoformat()
+    assert cache.lookup(listing) == (True, "abc12345")
+
+
+def test_a_miss_is_reported_as_a_miss():
+    cache = discovery.ListingCache()
+    assert cache.lookup(_listing(1, "Unseen", "12 May '26")) == (False, None)
+
+
+def test_duplicate_title_and_date_is_flagged_ambiguous():
+    """Two events sharing a title and date exist in this account.
+
+    Guessing between them would attach one event's results to the other, so the
+    sweep resolves both properly instead of trusting the cache.
+    """
+    listings = [
+        _listing(1, "Cork tt", "12 May '26"),
+        _listing(2, "Cork tt", "12 May '26"),
+        _listing(3, "CTC TT", "19 May '26"),
+    ]
+    ambiguous = discovery.ListingCache().ambiguous_keys(listings)
+    assert discovery.ListingCache.key(listings[0]) in ambiguous
+    assert discovery.ListingCache.key(listings[2]) not in ambiguous
+
+
+def test_cache_round_trips_through_disk(tmp_path):
+    path = tmp_path / "listing_cache.json"
+    listing = _listing(1, "CTC TT", "12 May '26")
+    cache = discovery.ListingCache()
+    cache.record(listing, "abc12345")
+    cache.save(path)
+    assert discovery.ListingCache.load(path).lookup(listing) == (True, "abc12345")
+
+
+def test_a_corrupt_cache_is_ignored_rather_than_fatal(tmp_path):
+    """Losing the cache costs one slow sweep; it must never cost correctness."""
+    path = tmp_path / "listing_cache.json"
+    path.write_text("{ not json", encoding="utf-8")
+    assert discovery.ListingCache.load(path).entries == {}
+
+
+def test_missing_cache_is_empty(tmp_path):
+    assert discovery.ListingCache.load(tmp_path / "nothing.json").entries == {}

@@ -443,6 +443,49 @@ _TEMPLATE = r"""<!doctype html>
                   text-transform:uppercase; letter-spacing:0.03em; }
   details { margin-top:10px; }
   summary { cursor:pointer; color:var(--ink-2); font-size:13px; }
+  /* ---- portrait phones -------------------------------------------------
+     The dashboard was built at desktop width; at 390px the panel padding,
+     the side-by-side athlete list, and the fixed-width form controls each
+     stole enough room to squeeze the chart into an unreadable strip. */
+  @media (max-width: 620px) {
+    body { font-size:14.5px; }
+    header { padding:10px 14px; gap:10px; }
+    header h1 { font-size:16px; }
+    header .sub { font-size:12px; flex-basis:100%; order:3; }
+    main { padding:12px; }
+    section { padding:14px 13px; margin-bottom:12px; border-radius:10px; }
+
+    /* Tabs scroll sideways rather than wrapping into three stacked rows. */
+    .series-tabs {
+      flex-wrap:nowrap; overflow-x:auto; margin:0 -13px 14px; padding:0 13px 4px;
+      scrollbar-width:none;
+    }
+    .series-tabs::-webkit-scrollbar { display:none; }
+    .series-tabs button { flex:0 0 auto; padding:8px 13px; font-size:13.5px; }
+
+    .tiles { gap:8px; }
+    .tile { flex:1 1 calc(50% - 4px); padding:9px 10px; }
+    .tile .n { font-size:19px; }
+
+    /* The athlete list is a chooser, not a column - give it its own row and
+       cap it, so the chart below is never pushed off-screen. */
+    .grid2 { grid-template-columns:1fr; gap:14px; }
+    .athlete-list { max-height:210px; }
+
+    /* Full-width controls: a date picker at its intrinsic width plus a text
+       box wrapped into a two-line mess. */
+    .row { gap:8px; }
+    .row > input, .row > select, .row > button { flex:1 1 100%; width:100%; }
+
+    table { font-size:13px; }
+    th, td { padding:5px 7px; }
+    figure { margin:0 -4px; }
+    .legend { font-size:11.5px; gap:10px; }
+    .claim { padding:11px 10px; }
+    .claim .steps { padding-left:18px; }
+    h2 { font-size:14.5px; }
+  }
+
   .note { border-left:3px solid var(--s2); padding:6px 10px; margin:10px 0;
           color:var(--ink-2); font-size:13px; background:var(--plane); border-radius:0 6px 6px 0; }
   .claim { border:1px solid var(--border); border-radius:8px; padding:12px; margin-top:14px; }
@@ -531,7 +574,7 @@ const colorOf = (key) => SERIES_COLORS[seriesKeys.indexOf(key) % SERIES_COLORS.l
 const seriesOf = (key) => DATA.series.find(s => s.key === key);
 const S = DATA.summary;
 
-const state = { series: seriesKeys[0], athlete: null, filter: "", year: "all" };
+const state = { series: seriesKeys[0], athlete: null, filter: "", year: null };
 
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, c =>
@@ -574,7 +617,7 @@ function renderTabs() {
       if (state.series === b.dataset.k) return;
       state.series = b.dataset.k;
       state.athlete = null;
-      state.year = "all";
+      state.year = null;   // fall back to the new athlete's latest season
       renderTabs();
       renderSeries();
     };
@@ -654,8 +697,26 @@ function renderList() {
 $("search").oninput = (e) => { state.filter = e.target.value; renderList(); };
 
 /* ---------- trend chart ---------- */
-function lineChart(runs, key) {
-  const W = 640, H = 240, m = { t: 14, r: 18, b: 30, l: 46 };
+/* The SVG viewBox is set to the container's real pixel width rather than a
+   fixed 640. Scaling a 640-wide drawing down to a 360px phone shrank every
+   label with it - 11px type rendered at about 6px, which is what made the
+   chart unreadable in portrait. Matching the viewBox to the actual width keeps
+   text at its intended size whatever the screen. */
+function chartWidth() {
+  const panel = $("athlete-panel");
+  const available = panel ? panel.clientWidth : 0;
+  return Math.max(280, Math.min(available || 640, 720));
+}
+
+function lineChart(runs, key, width) {
+  const W = width || chartWidth();
+  const narrow = W < 460;
+  const H = narrow ? 210 : 240;
+  // A narrow chart needs less room for axis labels, and cannot afford it either.
+  const m = narrow
+    ? { t: 12, r: 10, b: 26, l: 34 }
+    : { t: 14, r: 18, b: 30, l: 46 };
+  const fs = narrow ? 10 : 11;
   const pts = runs.filter(r => r.speed !== null);
   if (!pts.length) return "";
 
@@ -669,19 +730,36 @@ function lineChart(runs, key) {
   const sx = v => m.l + ((v - x0) / ((x1 - x0) || 1)) * (W - m.l - m.r);
   const sy = v => H - m.b - ((v - y0) / ((y1 - y0) || 1)) * (H - m.t - m.b);
 
+  const ticks = narrow ? 3 : 4;
   let grid = "";
-  for (let i = 0; i <= 4; i++) {
-    const v = y0 + (i / 4) * (y1 - y0), y = sy(v);
+  for (let i = 0; i <= ticks; i++) {
+    const v = y0 + (i / ticks) * (y1 - y0), y = sy(v);
     grid += `<line x1="${m.l}" x2="${W - m.r}" y1="${y}" y2="${y}" stroke="var(--grid)" stroke-width="1"/>
-             <text x="${m.l - 8}" y="${y + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${v.toFixed(1)}</text>`;
+             <text x="${m.l - 6}" y="${y + 4}" text-anchor="end" font-size="${fs}" fill="var(--muted)">${v.toFixed(narrow ? 0 : 1)}</text>`;
   }
 
+  // Within a single season the years all collapse onto one label, so show
+  // months instead - otherwise a 2026 chart is labelled "2026" once and
+  // nothing else.
+  const seasons = [...new Set(pts.map(p => p.season))];
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   let xlab = "";
-  [...new Set(pts.map(p => p.season))].forEach(yr => {
-    const first = pts.find(p => p.season === yr);
-    xlab += `<text x="${sx(new Date(first.date).getTime())}" y="${H - 8}" text-anchor="middle"
-                   font-size="11" fill="var(--muted)">${yr}</text>`;
-  });
+  if (seasons.length === 1 && pts.length > 1) {
+    const seen = new Set();
+    pts.forEach(p => {
+      const d = new Date(p.date), label = MONTHS[d.getMonth()];
+      if (seen.has(label)) return;
+      seen.add(label);
+      xlab += `<text x="${sx(d.getTime())}" y="${H - 7}" text-anchor="middle"
+                     font-size="${fs}" fill="var(--muted)">${label}</text>`;
+    });
+  } else {
+    seasons.forEach(yr => {
+      const first = pts.find(p => p.season === yr);
+      xlab += `<text x="${sx(new Date(first.date).getTime())}" y="${H - 7}" text-anchor="middle"
+                     font-size="${fs}" fill="var(--muted)">${narrow ? String(yr).slice(2) : yr}</text>`;
+    });
+  }
 
   const path = pts.map((p, i) =>
     (i ? "L" : "M") + sx(new Date(p.date).getTime()).toFixed(1) + " " + sy(p.speed).toFixed(1)).join(" ");
@@ -700,11 +778,12 @@ function lineChart(runs, key) {
       data-t="${esc(t + note)}" style="cursor:pointer"/>`;
   }).join("");
 
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Speed over time">
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}"
+      preserveAspectRatio="xMidYMid meet" role="img" aria-label="Speed over time">
     ${grid}<line x1="${m.l}" x2="${W - m.r}" y1="${H - m.b}" y2="${H - m.b}" stroke="var(--axis)"/>
     <path d="${path}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
     ${dots}${xlab}
-    <text x="${m.l - 8}" y="${m.t + 2}" text-anchor="end" font-size="10" fill="var(--muted)">km/h</text>
+    <text x="${m.l - 6}" y="${m.t + 2}" text-anchor="end" font-size="${fs - 1}" fill="var(--muted)">km/h</text>
   </svg>`;
 }
 
@@ -735,9 +814,13 @@ function showAthlete(a) {
   const allRuns = a.seriesRuns;
   const years = [...new Set(allRuns.map(r => r.season))].sort((x, y) => y - x);
 
-  // Default to the most recent year this athlete raced; keep the chosen view
-  // when it still applies to whoever is selected now.
-  if (state.year !== "all" && !years.includes(state.year)) state.year = years[0];
+  // Default to the athlete's most recent season. "All time" is one click away,
+  // but the question people arrive with is "how am I going this year".
+  // state.year starts as null so that an explicit "all" is respected, while an
+  // unset or stale year falls back to the newest season available.
+  if (state.year === null || (state.year !== "all" && !years.includes(state.year))) {
+    state.year = years[0];
+  }
 
   const runs = state.year === "all" ? allRuns : allRuns.filter(r => r.season === state.year);
   const t = fitTrend(runs);
@@ -1071,6 +1154,18 @@ $("excluded").innerHTML =
   `<thead><tr><th>Date</th><th>Event</th><th>Why excluded</th></tr></thead><tbody>` +
   DATA.excluded.map(e => `<tr><td>${esc(e.date || "")}</td><td>${esc(e.title || "")}</td>
     <td>${esc(e.reason)}</td></tr>`).join("") + "</tbody>";
+
+/* ---------- redraw on resize ---------- */
+// The chart is sized to its container at render time, so a rotation or a
+// window resize has to redraw it or the viewBox keeps the old width.
+let resizeTimer = null;
+let lastWidth = window.innerWidth;
+addEventListener("resize", () => {
+  if (window.innerWidth === lastWidth) return;   // ignore mobile URL-bar hide/show
+  lastWidth = window.innerWidth;
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (state.athlete) showAthlete(state.athlete); }, 180);
+});
 
 /* ---------- go ---------- */
 renderTabs();

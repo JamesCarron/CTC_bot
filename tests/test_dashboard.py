@@ -302,3 +302,46 @@ def test_claim_instructions_explain_the_name_problem(page):
     """A club member has to understand why their results are split up."""
     assert "entry sheet" in page
     assert "James Carrons" in page  # the real example that makes it concrete
+
+
+# ---- portrait phones and the year default --------------------------------
+
+
+def test_chart_is_sized_to_its_container(page):
+    """A fixed 640-wide viewBox scaled to a 390px phone shrank the labels too.
+
+    11px type rendered at about 6px, which is what made the chart unreadable in
+    portrait. Matching the viewBox to the real width keeps text at its intended
+    size on any screen.
+    """
+    assert "function chartWidth()" in page
+    assert 'viewBox="0 0 ${W} ${H}"' in page
+    assert "const narrow = W < 460" in page
+
+
+def test_chart_redraws_when_the_screen_changes(page):
+    """Sized at render time, so a rotation has to trigger a redraw."""
+    assert 'addEventListener("resize"' in page
+    # ...but not for the mobile URL bar sliding away, which fires resize
+    # constantly while scrolling.
+    assert "if (window.innerWidth === lastWidth) return;" in page
+
+
+def test_there_is_a_portrait_breakpoint(page):
+    assert "@media (max-width: 620px)" in page
+    # the athlete list stops being a side column
+    assert "grid-template-columns:1fr" in page
+
+
+def test_year_view_defaults_to_the_latest_season(page):
+    """state.year starts null so an explicit "all" is respected, while an unset
+    or stale year falls back to the newest season the athlete raced."""
+    assert 'year: null }' in page
+    assert "state.year = years[0];" in page
+    assert 'state.year === null || (state.year !== "all"' in page
+
+
+def test_a_single_season_chart_is_labelled_by_month(page):
+    """Every point in one season shares a year, so a year axis says nothing."""
+    assert "seasons.length === 1" in page
+    assert '"Jan","Feb","Mar"' in page

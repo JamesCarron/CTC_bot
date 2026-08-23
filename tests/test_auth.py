@@ -207,3 +207,55 @@ def test_lockout_keys_on_the_real_visitor_not_the_proxy():
 
     source = (Path(__file__).parent.parent / "ctc_bot" / "server.py").read_text(encoding="utf-8")
     assert 'X-Forwarded-For' in source
+
+
+def test_refuses_to_serve_the_internet_without_a_password(monkeypatch):
+    """Auth off is right on localhost and catastrophic on 0.0.0.0.
+
+    A deploy that lost the secret would otherwise publish the club's history
+    and every write endpoint, with nothing to signal it.
+    """
+    import importlib
+
+    monkeypatch.delenv(auth.ENV_PASSWORD, raising=False)
+    monkeypatch.setenv("CTC_HOST", "0.0.0.0")
+    from ctc_bot import server
+
+    reloaded = importlib.reload(server)
+    with pytest.raises(SystemExit, match="Refusing to bind"):
+        reloaded.serve(open_browser=False)
+
+
+def test_localhost_without_a_password_is_allowed(monkeypatch):
+    """The local install must keep working with no password at all."""
+    from pathlib import Path
+
+    source = (Path(__file__).parent.parent / "ctc_bot" / "server.py").read_text(encoding="utf-8")
+    assert 'HOST not in ("127.0.0.1", "localhost", "::1")' in source
+
+
+def test_signing_key_survives_bytes_that_look_like_newlines(tmp_path, monkeypatch):
+    """Windows opens files in text mode unless told otherwise.
+
+    Without O_BINARY every 0x0A in the key was written as \r\n, so the key read
+    back differed from the key written and sessions failed verification - about
+    12% of the time, which is exactly the kind of intermittency that gets
+    dismissed as a fluke.
+    """
+    monkeypatch.setattr(auth, "_SECRET_FILE", tmp_path / ".session_secret")
+    monkeypatch.delenv(auth.ENV_SESSION_SECRET, raising=False)
+
+    written = auth.session_secret()          # creates the file
+    read_back = auth.session_secret()        # reads it
+    assert written == read_back
+    assert len(read_back) == 32
+
+
+def test_a_token_verifies_immediately_after_the_key_is_created(tmp_path, monkeypatch):
+    """The round trip that the text-mode bug actually broke."""
+    monkeypatch.setattr(auth, "_SECRET_FILE", tmp_path / ".session_secret")
+    monkeypatch.delenv(auth.ENV_SESSION_SECRET, raising=False)
+    monkeypatch.setenv(auth.ENV_PASSWORD, "x")
+
+    # make_token creates the key; verify_token reads it back from disk.
+    assert auth.verify_token(auth.make_token())

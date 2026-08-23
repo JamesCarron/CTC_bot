@@ -573,6 +573,17 @@ def claim_athlete(athlete_id: str, display_name: str) -> str:
 
 def serve(port: int = DEFAULT_PORT, *, open_browser: bool = True, schedule: bool = False) -> None:
     """Run the dashboard server until interrupted."""
+    # Refuse to serve the internet with no password. Authentication being off is
+    # correct on 127.0.0.1 and catastrophic on 0.0.0.0 - a deploy that lost the
+    # secret would otherwise publish the club's whole history, and every write
+    # endpoint, with nothing to notice it had happened.
+    if HOST not in ("127.0.0.1", "localhost", "::1") and not auth.is_enabled():
+        raise SystemExit(
+            f"Refusing to bind {HOST} with no {auth.ENV_PASSWORD} set.\n"
+            "That would serve the dashboard, and every write endpoint, to anyone.\n"
+            "Set the password, or bind to 127.0.0.1 for local use."
+        )
+
     dashboard.build()
 
     refresher = None

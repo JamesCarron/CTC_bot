@@ -70,7 +70,13 @@ def session_secret() -> bytes:
     _SECRET_FILE.parent.mkdir(parents=True, exist_ok=True)
     # Created 0600, not chmod'd afterwards - there must be no window where the
     # signing key is world-readable.
-    handle = os.open(_SECRET_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    #
+    # O_BINARY matters: without it Windows opens in text mode and rewrites every
+    # 0x0A byte as \r\n. A random 32-byte key contains one about 12% of the time,
+    # so the key read back differed from the key written, and sessions failed
+    # signature verification seemingly at random. A no-op on Linux.
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_BINARY", 0)
+    handle = os.open(_SECRET_FILE, flags, 0o600)
     try:
         os.write(handle, generated)
     finally:

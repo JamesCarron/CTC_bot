@@ -62,7 +62,10 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(body)
+        # A HEAD response carries the headers of the GET it mirrors, including
+        # Content-Length, but never the body.
+        if not self._head_only:
+            self.wfile.write(body)
 
     def _json(self, status: int, payload: dict) -> None:
         self._send(status, json.dumps(payload).encode("utf-8"), "application/json; charset=utf-8")
@@ -83,6 +86,21 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(200, {"ok": True, "rows": search_rows(query)})
         else:
             self._json(404, {"ok": False, "message": "Not found"})
+
+    def do_HEAD(self) -> None:  # noqa: N802 - required name
+        """Answer HEAD as GET-without-a-body.
+
+        BaseHTTPRequestHandler returns 501 otherwise, and uptime monitors
+        commonly probe with HEAD - which would report the site as down while it
+        was serving perfectly well.
+        """
+        self._head_only = True
+        try:
+            self.do_GET()
+        finally:
+            self._head_only = False
+
+    _head_only = False
 
     def do_POST(self) -> None:  # noqa: N802 - required name
         if READ_ONLY and self.path in _WRITE_PATHS:

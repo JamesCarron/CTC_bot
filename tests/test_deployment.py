@@ -163,3 +163,18 @@ def test_cache_rebuilds_only_when_the_data_changes(tmp_path, monkeypatch):
     config.CONFIG_PATH.touch()
     dashboard.build_if_stale(out_path=target)
     assert calls["n"] == 2
+
+
+# ---- HEAD ----------------------------------------------------------------
+
+
+def test_head_is_answered_like_get():
+    """Uptime monitors probe with HEAD; the default handler 501s on it."""
+    from ctc_bot import server
+
+    assert hasattr(server._Handler, "do_HEAD")
+    source = __import__("pathlib").Path(server.__file__).read_text(encoding="utf-8")
+    # It must reuse do_GET rather than duplicating the routing table.
+    assert "self.do_GET()" in source
+    # And it must suppress the body, not just the write.
+    assert "if not self._head_only:" in source

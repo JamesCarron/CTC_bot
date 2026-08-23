@@ -290,6 +290,47 @@ def build(*, out_path: Path | None = None) -> Path:
     return target
 
 
+def data_fingerprint() -> tuple:
+    """Cheap signature of everything the page is built from.
+
+    Reads directory metadata rather than file contents: 209 event files plus
+    the three state files, by size and modification time.
+    """
+    from . import overrides as ovr
+
+    events_dir = store.EVENTS_DIR
+    parts: list = []
+    if events_dir.exists():
+        stats = [(p.stat().st_mtime_ns, p.stat().st_size) for p in events_dir.glob("*.json")]
+        parts.append((len(stats), max(stats, default=(0, 0))))
+    for path in (idn.IDENTITY_PATH, ovr.OVERRIDES_PATH, config.CONFIG_PATH):
+        parts.append(
+            (path.stat().st_mtime_ns, path.stat().st_size) if path.exists() else None
+        )
+    return tuple(parts)
+
+
+_cache: dict = {"fingerprint": None, "path": None}
+
+
+def build_if_stale(*, out_path: Path | None = None) -> Path:
+    """Build only when the underlying data has actually changed.
+
+    The page is rebuilt from 209 event files, which is nothing once but wasteful
+    on every request from every visitor. Claims and corrections change the
+    fingerprint, so an edit is still reflected on the next load.
+    """
+    target = out_path or OUT_PATH
+    fingerprint = data_fingerprint()
+    if _cache["fingerprint"] == fingerprint and target.exists():
+        return target
+
+    built = build(out_path=target)
+    _cache["fingerprint"] = fingerprint
+    _cache["path"] = built
+    return built
+
+
 _TEMPLATE = r"""<!doctype html>
 <html lang="en">
 <head>

@@ -4,13 +4,20 @@ Serves the generated page and one small API the page calls to record a claim.
 Claims have to write to ``data/identity.json``, which a ``file://`` page cannot
 do - that is the only reason a server exists.
 
-It binds to localhost only. Nothing here is exposed to the network, and there
-is no authentication, so it must stay that way.
+**This server has no authentication of its own.** Locally it binds to
+``127.0.0.1`` and that is the whole protection. Deployed, it binds to all
+interfaces (``CTC_HOST=0.0.0.0``) and sits behind Traefik, where a ``basicauth``
+middleware is what keeps the write API from being world-writable.
+
+``CTC_READ_ONLY`` refuses every mutating endpoint regardless. It exists because
+a middleware that fails to attach does so silently, and this turns that from
+"anyone can rewrite the club's history" into "nobody can change anything".
 """
 
 from __future__ import annotations
 
 import json
+import os
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -18,11 +25,24 @@ from pathlib import Path
 
 from . import dashboard
 from . import identity as idn
+from . import scheduler as sched
 from . import overrides as ovr
 from . import store
 
-HOST = "127.0.0.1"
-DEFAULT_PORT = 8777
+HOST = os.environ.get("CTC_HOST", "127.0.0.1")
+DEFAULT_PORT = int(os.environ.get("PORT", "8777"))
+
+# Refuse every mutating endpoint. The deployed instance sits behind Traefik
+# basicauth, but a middleware that silently fails to attach is the realistic
+# way that protection disappears - and it disappears without any error. This
+# makes that failure mode fail closed instead of publishing a write API to the
+# internet. Ships on; turned off once the password prompt is confirmed working.
+READ_ONLY = os.environ.get("CTC_READ_ONLY", "").strip().lower() in {"1", "true", "yes", "on"}
+
+_WRITE_PATHS = (
+    "/api/claim", "/api/adopt", "/api/disown",
+    "/api/edit-time", "/api/reset-time", "/api/add-result", "/api/remove-result",
+)
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -54,10 +74,10 @@ class _Handler(BaseHTTPRequestHandler):
 
         parsed = urlparse(self.path)
         if parsed.path in ("/", "/index.html", "/dashboard.html"):
-            path = dashboard.build()
+            path = dashboard.build_if_stale()
             self._send(200, path.read_bytes(), "text/html; charset=utf-8")
         elif parsed.path == "/api/health":
-            self._json(200, {"ok": True})
+            self._json(200, {"ok": True, "readOnly": READ_ONLY})
         elif parsed.path == "/api/rows":
             query = (parse_qs(parsed.query).get("q") or [""])[0]
             self._json(200, {"ok": True, "rows": search_rows(query)})
@@ -65,10 +85,20 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(404, {"ok": False, "message": "Not found"})
 
     def do_POST(self) -> None:  # noqa: N802 - required name
-        if self.path not in (
-            "/api/claim", "/api/adopt", "/api/disown",
-            "/api/edit-time", "/api/reset-time", "/api/add-result", "/api/remove-result",
-        ):
+        if READ_ONLY and self.path in _WRITE_PATHS:
+            self._json(
+                403,
+                {
+                    "ok": False,
+                    "message": "This dashboard is read-only. Changes are disabled.",
+                },
+            )
+            return
+
+        # One list, used both as the router's allowlist and as what read-only
+        # refuses. Two lists would let a new endpoint be routed but not covered,
+        # and nothing would report it.
+        if self.path not in _WRITE_PATHS:
             self._json(404, {"ok": False, "message": "Not found"})
             return
 
@@ -394,9 +424,14 @@ def claim_athlete(athlete_id: str, display_name: str) -> str:
     return f"{len(candidates)} result(s) recorded for {athlete.display_name} (races as: {variants})"
 
 
-def serve(port: int = DEFAULT_PORT, *, open_browser: bool = True) -> None:
+def serve(port: int = DEFAULT_PORT, *, open_browser: bool = True, schedule: bool = False) -> None:
     """Run the dashboard server until interrupted."""
     dashboard.build()
+
+    refresher = None
+    if schedule:
+        refresher = sched.Scheduler()
+        refresher.start()
 
     httpd = ThreadingHTTPServer((HOST, port), _Handler)
     url = f"http://{HOST}:{port}/"
@@ -404,6 +439,8 @@ def serve(port: int = DEFAULT_PORT, *, open_browser: bool = True) -> None:
     print("CTC_bot dashboard")
     print("=" * 52)
     print(f"  {url}")
+    if READ_ONLY:
+        print("  READ-ONLY: claims, edits and additions are refused.")
     print("  The page rebuilds on every load, so refresh after claiming.")
     print("  Press Ctrl+C to stop.")
     print("=" * 52)

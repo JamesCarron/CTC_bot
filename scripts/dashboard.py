@@ -30,6 +30,10 @@ def main() -> int:
     parser.add_argument("--build", action="store_true", help="build the HTML and exit")
     parser.add_argument("--port", type=int, default=server.DEFAULT_PORT)
     parser.add_argument("--no-open", action="store_true", help="do not open a browser")
+    parser.add_argument(
+        "--schedule", action="store_true",
+        help="also refresh from the admin console on Wed/Fri mornings",
+    )
     args = parser.parse_args()
 
     if not store.load_all():
@@ -51,7 +55,7 @@ def main() -> int:
     if port != args.port:
         print(f"Port {args.port} is busy; using {port}.")
 
-    server.serve(port, open_browser=not args.no_open)
+    server.serve(port, open_browser=not args.no_open, schedule=args.schedule)
     return 0
 
 

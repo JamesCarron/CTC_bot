@@ -1,0 +1,29 @@
+# =====================================================================
+# Build and deploy on push to main.
+#
+# Calls the reusable workflow in the infra repo (ARCHITECTURE.md §10):
+# builds the image, pushes ghcr.io/JamesCarron/tri:<sha>, then commits that
+# SHA into infra's apps/tri/compose.yml so Arcane's git-watch redeploys.
+#
+# Prerequisites, both one-time:
+#   - INFRA_REPO_TOKEN in this repo's secrets: a fine-grained PAT scoped to
+#     contents:write on the infra repo only.
+#   - infra is a PRIVATE repo, and this one is public. A public repo may only
+#     call a reusable workflow from a private repo if that repo allows it:
+#     infra → Settings → Actions → General → Access →
+#     "Accessible from repositories owned by the user".
+#     Without it the run fails at workflow resolution, before any build.
+# =====================================================================
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    uses: JamesCarron/infra/.github/workflows/build-and-deploy.yml@main
+    with:
+      app_name: tri
+    secrets:
+      infra_repo_token: ${{ secrets.INFRA_REPO_TOKEN }}

@@ -25,6 +25,14 @@ from pathlib import Path
 
 SERVICE = "CTC_bot/raceclocker"
 
+# Read first, before the encrypted file. This is how the containerised deploy
+# gets its login: SOPS-encrypted in the infra repo, decrypted at bootstrap to a
+# 0600 file outside the repo, handed to the container by compose's `env_file:`.
+# The secret only ever lives in the process environment - no plaintext on disk,
+# so the no-plaintext-fallback rule below is not weakened by this.
+ENV_USERNAME = "CTC_RACECLOCKER_EMAIL"
+ENV_PASSWORD = "CTC_RACECLOCKER_PASSWORD"
+
 # Application-specific entropy, mixed into DPAPI so that another process running
 # as the same user cannot unprotect this blob without knowing it. Modest
 # defence, but standard practice and free.
@@ -64,14 +72,30 @@ def _dpapi():
     return win32crypt
 
 
+def from_environment() -> "Credentials | None":
+    """Credentials supplied by the environment, if both are set."""
+    username = os.environ.get(ENV_USERNAME, "").strip()
+    password = os.environ.get(ENV_PASSWORD, "")
+    if username and password:
+        return Credentials(username=username, password=password)
+    return None
+
+
 def backend_name() -> str:
     """Which secure backend is in use, for display."""
+    if from_environment():
+        return f"environment ({ENV_USERNAME} / {ENV_PASSWORD})"
     if _dpapi():
         return "Windows DPAPI (bound to your Windows user account)"
     return "none"
 
 
 def available() -> bool:
+    """Whether credentials can be *stored*.
+
+    The environment backend is read-only - the container is handed its secret
+    and has nowhere to write one - so this still asks about DPAPI.
+    """
     return _dpapi() is not None
 
 
@@ -147,11 +171,20 @@ def store(username: str, password: str, path: Path | None = None) -> Path:
 
 
 def load(path: Path | None = None) -> Credentials:
-    """Read and decrypt the stored credentials."""
+    """Read the credentials, preferring the environment over the stored file.
+
+    The environment wins so that a container is never silently using a stale
+    file baked into an image instead of the secret it was handed.
+    """
+    supplied = from_environment()
+    if supplied is not None:
+        return supplied
+
     target = path or default_path()
     if not target.exists():
         raise CredentialError(
-            f"No credentials stored at {target}.\n"
+            f"No credentials stored at {target}, and neither {ENV_USERNAME} "
+            f"nor {ENV_PASSWORD} is set.\n"
             "Run:  ctc login"
         )
     data = json.loads(_decrypt(target.read_bytes()).decode("utf-8"))
@@ -159,7 +192,8 @@ def load(path: Path | None = None) -> Credentials:
 
 
 def exists(path: Path | None = None) -> bool:
-    return (path or default_path()).exists()
+    """Whether credentials are available from any backend."""
+    return from_environment() is not None or (path or default_path()).exists()
 
 
 def delete(path: Path | None = None) -> bool:

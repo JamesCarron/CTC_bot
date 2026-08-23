@@ -10,8 +10,8 @@ truststore>=0.9
 # Encrypts the stored RaceClocker login with Windows DPAPI
 pywin32>=306; sys_platform == "win32"
 
-# Phase 6 (PNG rendering)
-matplotlib>=3.8
+# matplotlib was here for a PNG renderer that was never built. Left out to keep
+# the container image small; add it back when that lands.
 
 # Dev
 pytest>=8.0

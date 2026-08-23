@@ -1,0 +1,22 @@
+# The pixi environment is 1.6 GB and is a workstation tool, not a runtime one.
+.pixi/
+pixi.lock
+pixi.toml
+ctc.cmd
+dashboard.bat
+
+# Data lives on a volume, never in the image. identity.json and overrides.json
+# hold hand-made state that must not be baked into a layer and shipped.
+data/
+out/
+working/
+
+# Not needed at runtime.
+tests/
+.git/
+.github/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.md
+pytest.ini

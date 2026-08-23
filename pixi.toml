@@ -20,8 +20,6 @@ truststore = ">=0.9"
 # Encrypts the stored RaceClocker login with Windows DPAPI.
 pywin32 = ">=306"
 
-# Trend chart rendering.
-matplotlib = ">=3.8"
 
 [feature.dev.dependencies]
 pytest = ">=8.0"

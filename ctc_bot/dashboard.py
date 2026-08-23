@@ -26,12 +26,28 @@ SERIES_LABELS = {
 }
 
 
-def series_label(key: str) -> str:
+def series_label(key: str, *, name_the_route: bool = True) -> str:
+    """Human label for a series key.
+
+    The route is only named when more than one route of that race type is
+    actually shown. With a single enabled route there is nothing to tell apart,
+    and "Time trial" reads better than "Time trial - Short (13 km)".
+    """
     if key in SERIES_LABELS:
         return SERIES_LABELS[key]
     race_type, _, route = key.partition("|")
     base = "Time trial" if race_type == "time_trial" else race_type.replace("_", " ").title()
-    return f"{base} — {route}" if route else base
+    return f"{base} — {route}" if route and name_the_route else base
+
+
+# The tab order shown on the dashboard. Anything unlisted follows, alphabetically.
+SERIES_ORDER = ("time_trial", "aquathon")
+
+
+def _series_sort_key(key: str) -> tuple:
+    race_type = key.partition("|")[0]
+    rank = SERIES_ORDER.index(race_type) if race_type in SERIES_ORDER else len(SERIES_ORDER)
+    return (rank, key)
 
 
 def _format_time(seconds: float) -> str:
@@ -49,6 +65,10 @@ def build_payload(stored_events, registry: idn.Registry) -> dict:
     # in data/courses.json brings the whole history back with no refetch.
     def enabled(performance) -> bool:
         return config.is_series_enabled(performance.race_type, performance.route, courses)
+
+    def label_for(key: str) -> str:
+        race_type = key.partition("|")[0]
+        return series_label(key, name_the_route=len(config.enabled_routes(race_type, courses)) > 1)
 
     # --- athletes ---
     athlete_payload = []
@@ -147,7 +167,7 @@ def build_payload(stored_events, registry: idn.Registry) -> dict:
         series_payload.append(
             {
                 "key": key,
-                "label": series_label(key),
+                "label": label_for(key),
                 "races": len({run["event"] for run in runs}),
                 "results": len(runs),
                 "athletes": len(people),
@@ -156,7 +176,7 @@ def build_payload(stored_events, registry: idn.Registry) -> dict:
                 "latest": latest_in(key),
             }
         )
-    series_payload.sort(key=lambda s: (s["key"] != "aquathon", s["label"]))
+    series_payload.sort(key=lambda s: _series_sort_key(s["key"]))
 
     standings_payload = {}
     for key in series_keys:
@@ -201,7 +221,7 @@ def build_payload(stored_events, registry: idn.Registry) -> dict:
             "minFieldForStats": curation.MIN_FIELD_FOR_STATS,
             "verified": sum(1 for a in athlete_payload if a["verified"]),
         },
-        "seriesLabels": {key: series_label(key) for key in series_keys},
+        "seriesLabels": {key: label_for(key) for key in series_keys},
         "series": series_payload,
         "hidden": [
             {"label": series_label(f"{race_type}|{route.name}"), "distance": route.distance_km}
@@ -360,12 +380,19 @@ _TEMPLATE = r"""<!doctype html>
     background:var(--s1); color:#fff; border-color:var(--s1);
   }
   .series-tabs button .c { font-weight:400; opacity:.75; margin-left:6px; font-size:12.5px; }
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+  .year-tabs button { padding:4px 12px; font-size:13px; border-radius:7px; }
+  .year-tabs button[aria-selected="true"] { background:var(--s1); color:#fff; border-color:var(--s1); }
+  h3.table-head { font-size:13px; color:var(--ink-2); font-weight:600; margin:18px 0 6px;
+                  text-transform:uppercase; letter-spacing:0.03em; }
   details { margin-top:10px; }
   summary { cursor:pointer; color:var(--ink-2); font-size:13px; }
   .note { border-left:3px solid var(--s2); padding:6px 10px; margin:10px 0;
           color:var(--ink-2); font-size:13px; background:var(--plane); border-radius:0 6px 6px 0; }
   .claim { border:1px solid var(--border); border-radius:8px; padding:12px; margin-top:14px; }
   .claim .msg { font-size:13px; margin-top:8px; }
+  .claim .steps { margin:8px 0 10px; padding-left:20px; }
+  .claim .steps li { margin:3px 0; }
 </style>
 </head>
 <body>
@@ -434,7 +461,7 @@ const colorOf = (key) => SERIES_COLORS[seriesKeys.indexOf(key) % SERIES_COLORS.l
 const seriesOf = (key) => DATA.series.find(s => s.key === key);
 const S = DATA.summary;
 
-const state = { series: seriesKeys[0], athlete: null, filter: "" };
+const state = { series: seriesKeys[0], athlete: null, filter: "", year: "all" };
 
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, c =>
@@ -477,6 +504,7 @@ function renderTabs() {
       if (state.series === b.dataset.k) return;
       state.series = b.dataset.k;
       state.athlete = null;
+      state.year = "all";
       renderTabs();
       renderSeries();
     };
@@ -604,22 +632,49 @@ function lineChart(runs, key) {
   </svg>`;
 }
 
+/* Least-squares fit of speed against date, so the verdict always describes the
+   points actually on screen rather than an all-time figure above a one-year
+   chart. Returns km/h per year plus r². */
+function fitTrend(pts) {
+  const usable = pts.filter(p => p.speed !== null);
+  if (usable.length < S.minRacesForTrend) return null;
+  const xs = usable.map(p => new Date(p.date).getTime() / 86400000);
+  const ys = usable.map(p => p.speed);
+  const mx = xs.reduce((a, b) => a + b, 0) / xs.length;
+  const my = ys.reduce((a, b) => a + b, 0) / ys.length;
+  const sxx = xs.reduce((acc, x) => acc + (x - mx) ** 2, 0);
+  if (!sxx) return null;
+  const slope = xs.reduce((acc, x, i) => acc + (x - mx) * (ys[i] - my), 0) / sxx;
+  const ssRes = ys.reduce((acc, y, i) => acc + (y - (slope * (xs[i] - mx) + my)) ** 2, 0);
+  const ssTot = ys.reduce((acc, y) => acc + (y - my) ** 2, 0);
+  return { slope: slope * 365.25, r2: ssTot ? 1 - ssRes / ssTot : 0 };
+}
+
 function showAthlete(a) {
   state.athlete = a || null;
   renderList();
   if (!a) { $("athlete-panel").innerHTML = ""; return; }
 
-  const runs = a.seriesRuns;
   const s = seriesOf(state.series);
-  const t = a.trends[state.series];
+  const allRuns = a.seriesRuns;
+  const years = [...new Set(allRuns.map(r => r.season))].sort((x, y) => y - x);
+
+  // Default to the most recent year this athlete raced; keep the chosen view
+  // when it still applies to whoever is selected now.
+  if (state.year !== "all" && !years.includes(state.year)) state.year = years[0];
+
+  const runs = state.year === "all" ? allRuns : allRuns.filter(r => r.season === state.year);
+  const t = fitTrend(runs);
 
   let verdict;
   if (!t) {
-    verdict = `Needs ${S.minRacesForTrend} races on this course to fit a direction (has ${runs.length}).`;
+    const scope = state.year === "all" ? "in total" : `in ${state.year}`;
+    verdict = `${runs.length} race${runs.length === 1 ? "" : "s"} ${scope} — a direction needs at least ${S.minRacesForTrend}.`;
   } else {
+    const slope = t.slope.toFixed(2), r2 = t.r2.toFixed(2);
     const dir = t.slope > 0.05 ? "faster" : t.slope < -0.05 ? "slower" : "about level";
     const cls = t.slope > 0.05 ? "good" : t.slope < -0.05 ? "bad" : "";
-    verdict = `Trending <span class="${cls}">${dir}</span>: ${t.slope > 0 ? "+" : ""}${t.slope} km/h per year (fit r² ${t.r2}).`;
+    verdict = `Trending <span class="${cls}">${dir}</span>: ${t.slope > 0 ? "+" : ""}${slope} km/h per year (fit r² ${r2}).`;
   }
 
   let html = `<div class="row"><h2 style="margin:0">${esc(a.name)}</h2>
@@ -630,33 +685,47 @@ function showAthlete(a) {
     <span class="pill">${year(runs[0].date)}–${year(runs[runs.length-1].date)}</span></div>`;
 
   if (a.contested) {
-    html += `<div class="note"><b>This name appears twice within a single race.</b>
-      That is either two people sharing it, or one person entered twice — the club's
-      history has both. All the results are shown rather than hidden, but they almost
-      certainly do not all belong to one person. Claiming below will separate them.</div>`;
+    html += `<div class="note"><b>These results are probably not all one person.</b>
+      This name appears twice in the same race, which means either two people race
+      under it or somebody was entered twice. Nothing has been hidden or guessed —
+      the results are all shown as found. Confirming below is how they get split
+      apart.</div>`;
   } else if (!a.verified) {
-    html += `<div class="note">Grouped only by the exact name typed on the entry list.
-      Over seven years that may be more than one person. Claim these results to confirm.</div>`;
+    html += `<div class="note"><b>Nobody has confirmed who this is yet.</b>
+      These results are grouped only because the same name was typed on the entry
+      sheet. Any other spelling that rider used is sitting elsewhere in the list as
+      a separate entry, and if two people share the name their results are mixed
+      together here.</div>`;
   }
 
+  const yearTabs = years.map(y =>
+    `<button class="year" data-y="${y}" aria-selected="${state.year === y}">${y}</button>`
+  ).join("") +
+    `<button class="year" data-y="all" aria-selected="${state.year === "all"}">All time</button>`;
+
   html += `<figure style="margin-top:16px">
+    <div class="tabs year-tabs">${yearTabs}</div>
     <div class="legend"><span><i style="background:${colorOf(state.series)}"></i>${esc(s.label)}</span>
       <span><i style="background:var(--good)"></i>personal best</span></div>
     ${lineChart(runs, state.series)}
     <figcaption>${verdict}</figcaption>
   </figure>
+  <h3 class="table-head">All ${esc(s.label)} results, most recent first</h3>
   <div class="scroll"><table>
-    <thead><tr><th>Date</th><th>Race</th><th class="num">Time</th><th class="num">km/h</th>
-      <th class="num">Place</th><th class="num">vs field</th></tr></thead>
-    <tbody>${runs.map(r => `<tr>
-      <td>${r.date}</td><td>${esc(r.title || "")}</td>
+    <thead><tr><th>Date</th><th class="num">Time</th><th class="num">km/h</th></tr></thead>
+    <tbody>${allRuns.slice().reverse().map(r => `<tr>
+      <td>${r.date}</td>
       <td class="num">${r.time}${r.pb ? ' <span class="pill pb">PB</span>' : ""}</td>
       <td class="num">${fmt(r.speed)}</td>
-      <td class="num">${r.position} / ${r.field}</td>
-      <td class="num">${r.z === null ? "—" : (r.z > 0 ? "+" : "") + r.z}</td>
     </tr>`).join("")}</tbody></table></div>` + claimForm(a);
 
   $("athlete-panel").innerHTML = html;
+  $("athlete-panel").querySelectorAll("button.year").forEach(b => {
+    b.onclick = () => {
+      state.year = b.dataset.y === "all" ? "all" : Number(b.dataset.y);
+      showAthlete(a);
+    };
+  });
   $("athlete-panel").querySelectorAll("circle[data-t]").forEach(c => {
     c.addEventListener("mousemove", e => showTip(e, c.dataset.t));
     c.addEventListener("mouseleave", hideTip);
@@ -667,12 +736,28 @@ function showAthlete(a) {
 /* ---------- claim ---------- */
 function claimForm(a) {
   return `<div class="claim">
-    <h2>Are these your results?</h2>
-    <p class="hint">Confirming links every spelling you have raced under — across all
-      series, not just this one — so future races are recognised automatically.</p>
+    <h2>Is this you?</h2>
+    <p class="hint">
+      Results are matched only by the name written on the entry sheet, and that
+      name changes from week to week — <b>James Carron</b>, <b>James carron</b>,
+      <b>James Carrons</b> and <b>James C</b> were all the same rider. Until
+      somebody says so, each spelling looks like a different person and each one
+      gets its own short, broken history.
+    </p>
+    <ol class="hint steps">
+      <li>Put your full name in the box — the version you want shown.</li>
+      <li>Confirm the results on this page are yours.</li>
+      <li>Repeat for any <i>other</i> spelling you find in the list on the left.</li>
+    </ol>
+    <p class="hint">
+      Every spelling you confirm gets joined to the same person, across both the
+      time trial and the aquathon, and future races under any of those spellings
+      are recognised on their own. Nothing is deleted and nothing is guessed —
+      only confirm results you actually raced.
+    </p>
     <div class="row">
       <input type="text" id="claim-name" placeholder="Your full name" value="${esc(a.name)}" style="flex:1 1 220px">
-      <button class="primary" id="claim-go">Confirm all ${a.races} of my results</button>
+      <button class="primary" id="claim-go">These ${a.races} results are mine</button>
     </div>
     <div class="msg" id="claim-msg"></div>
   </div>`;

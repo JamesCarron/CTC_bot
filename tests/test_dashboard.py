@@ -103,13 +103,46 @@ def test_each_series_gets_its_own_tab(events):
         assert series["latest"]["rows"]
 
 
-def test_aquathon_tab_comes_first(events):
+def test_time_trial_is_the_default_tab(events):
+    """The time trial runs weekly and is what most people come to look at."""
     events.append(
         make_event("aq2", [("Ann", 1560.0)], race_type=cls.AQUATHON, listed_km=8.0,
                    date_text="Thursday 4 Sep '26, 19:00", title="Aquathon one")
     )
     payload = dashboard.build_payload(events, idn.Registry())
-    assert payload["series"][0]["key"] == "aquathon"
+    assert payload["series"][0]["key"].startswith("time_trial")
+    assert payload["series"][1]["key"] == "aquathon"
+
+
+def test_the_route_is_not_named_when_only_one_is_shown(events):
+    """With the 13.8 km route retired there is nothing to tell apart."""
+    payload = dashboard.build_payload(events, idn.Registry())
+    assert payload["series"][0]["label"] == "Time trial"
+
+
+def test_the_route_is_named_when_two_are_shown(events, tmp_path):
+    from ctc_bot import config
+
+    events.append(
+        make_event("long3", [("Ann", 1900.0)], listed_km=13.8,
+                   date_text="Tuesday 15 Sep '26, 19:00", title="Long route TT")
+    )
+    path = tmp_path / "courses.json"
+    courses = config.load_courses()
+    for route in courses[cls.TIME_TRIAL].routes:
+        route.enabled = True
+    config.save_courses(courses, path)
+
+    original = config.CONFIG_PATH
+    config.CONFIG_PATH = path
+    try:
+        payload = dashboard.build_payload(events, idn.Registry())
+    finally:
+        config.CONFIG_PATH = original
+
+    labels = [s["label"] for s in payload["series"]]
+    assert "Time trial — Short (13 km)" in labels
+    assert "Time trial — Long (13.8 km)" in labels
 
 
 def test_a_disabled_route_is_absent_from_the_page(events, monkeypatch):
@@ -241,3 +274,31 @@ def test_build_writes_a_file(tmp_path, monkeypatch, events):
 )
 def test_series_labels(key, expected):
     assert dashboard.series_label(key) == expected
+
+
+def test_route_suffix_is_dropped_on_request():
+    assert dashboard.series_label(
+        "time_trial|Short (13 km)", name_the_route=False
+    ) == "Time trial"
+
+
+# ---- the athlete panel ---------------------------------------------------
+
+
+def test_page_offers_year_views_and_an_all_time_view(page):
+    """The chart is split per season, defaulting to the athlete's latest."""
+    assert "year-tabs" in page
+    assert "All time" in page
+    assert 'state.year' in page
+
+
+def test_athlete_table_drops_the_noisy_columns(page):
+    """Race name, place and vs-field were removed from the per-athlete table."""
+    assert "most recent first" in page
+    assert "vs field" not in page
+
+
+def test_claim_instructions_explain_the_name_problem(page):
+    """A club member has to understand why their results are split up."""
+    assert "entry sheet" in page
+    assert "James Carrons" in page  # the real example that makes it concrete

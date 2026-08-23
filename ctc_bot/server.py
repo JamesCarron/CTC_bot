@@ -4,10 +4,13 @@ Serves the generated page and one small API the page calls to record a claim.
 Claims have to write to ``data/identity.json``, which a ``file://`` page cannot
 do - that is the only reason a server exists.
 
-**This server has no authentication of its own.** Locally it binds to
-``127.0.0.1`` and that is the whole protection. Deployed, it binds to all
-interfaces (``CTC_HOST=0.0.0.0``) and sits behind Traefik, where a ``basicauth``
-middleware is what keeps the write API from being world-writable.
+**Authentication lives here**, in :mod:`ctc_bot.auth` - not in Traefik. It began
+as a ``basicauth`` middleware, which worked but could only ever show the
+browser's own credential dialog. Moving it into the app buys a real login page,
+and moves the responsibility with it: nothing upstream checks a password now.
+
+With no ``CTC_SITE_PASSWORD`` set, authentication is off and binding to
+``127.0.0.1`` is the whole protection - that is how the local install runs.
 
 ``CTC_READ_ONLY`` refuses every mutating endpoint regardless. It exists because
 a middleware that fails to attach does so silently, and this turns that from
@@ -22,9 +25,12 @@ import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, quote, unquote_plus, urlparse
 
+from . import auth
 from . import dashboard
 from . import identity as idn
+from . import login_page
 from . import scheduler as sched
 from . import overrides as ovr
 from . import store
@@ -70,22 +76,93 @@ class _Handler(BaseHTTPRequestHandler):
     def _json(self, status: int, payload: dict) -> None:
         self._send(status, json.dumps(payload).encode("utf-8"), "application/json; charset=utf-8")
 
+    def _redirect(self, location: str, *, cookie: str | None = None) -> None:
+        self.send_response(303)
+        self.send_header("Location", location)
+        if cookie:
+            self.send_header("Set-Cookie", cookie)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def _cookie(self, name: str) -> str | None:
+        raw = self.headers.get("Cookie") or ""
+        for part in raw.split(";"):
+            key, _, value = part.strip().partition("=")
+            if key == name:
+                return value
+        return None
+
+    @property
+    def _client(self) -> str:
+        """Who is knocking, for lockout purposes.
+
+        Behind Cloudflare and Traefik every request arrives from the proxy, so
+        the socket address would lump the whole internet into one bucket and
+        lock everybody out together. warp-auto rewrites X-Forwarded-For to the
+        real visitor (ARCHITECTURE.md §7), which is what the rate limiter uses
+        too.
+        """
+        forwarded = (self.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+        return forwarded or self.client_address[0]
+
+    def _authenticated(self) -> bool:
+        return not auth.is_enabled() or auth.verify_token(self._cookie(auth.COOKIE_NAME))
+
+    def _session_cookie(self, value: str, *, max_age: int) -> str:
+        # Secure is safe to set unconditionally: the deployed site is HTTPS-only,
+        # and a local run over http has no password set, so no cookie is issued.
+        return (
+            f"{auth.COOKIE_NAME}={value}; Path=/; HttpOnly; SameSite=Lax; "
+            f"Secure; Max-Age={max_age}"
+        )
+
     # ---- routes ----
 
     def do_GET(self) -> None:  # noqa: N802 - required name
-        from urllib.parse import parse_qs, urlparse
-
         parsed = urlparse(self.path)
+
+        # Health is deliberately open: Docker's healthcheck and Uptime Kuma
+        # both probe it, and neither can hold a session. It reveals nothing.
+        if parsed.path == "/api/health":
+            self._json(200, {"ok": True, "readOnly": READ_ONLY})
+            return
+
+        if parsed.path == "/login":
+            if self._authenticated():
+                self._redirect("/")
+                return
+            nxt = (parse_qs(parsed.query).get("next") or ["/"])[0]
+            self._send(200, login_page.render(next_path=nxt).encode("utf-8"),
+                       "text/html; charset=utf-8")
+            return
+
+        if parsed.path == "/logout":
+            self._redirect("/login", cookie=self._session_cookie("", max_age=0))
+            return
+
+        if not self._authenticated():
+            self._deny(parsed.path)
+            return
+
         if parsed.path in ("/", "/index.html", "/dashboard.html"):
             path = dashboard.build_if_stale()
             self._send(200, path.read_bytes(), "text/html; charset=utf-8")
-        elif parsed.path == "/api/health":
-            self._json(200, {"ok": True, "readOnly": READ_ONLY})
         elif parsed.path == "/api/rows":
             query = (parse_qs(parsed.query).get("q") or [""])[0]
             self._json(200, {"ok": True, "rows": search_rows(query)})
         else:
             self._json(404, {"ok": False, "message": "Not found"})
+
+    def _deny(self, path: str) -> None:
+        """Send an unauthenticated caller somewhere useful.
+
+        A browser gets the login page; an API call gets JSON, because a page of
+        HTML in response to fetch() is just a confusing parse error.
+        """
+        if path.startswith("/api/"):
+            self._json(401, {"ok": False, "message": "Not signed in."})
+        else:
+            self._redirect(f"/login?next={quote(path, safe='/')}")
 
     def do_HEAD(self) -> None:  # noqa: N802 - required name
         """Answer HEAD as GET-without-a-body.
@@ -102,7 +179,60 @@ class _Handler(BaseHTTPRequestHandler):
 
     _head_only = False
 
+    def _read_body(self) -> bytes:
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return b""
+        return self.rfile.read(length) if length > 0 else b""
+
+    def _handle_login(self) -> None:
+        client = self._client
+        locked = auth.attempts.locked_for(client)
+        if locked:
+            minutes = max(1, round(locked / 60))
+            self._send(
+                429,
+                login_page.render(
+                    error=f"Too many attempts. Try again in about {minutes} minute"
+                          f"{'' if minutes == 1 else 's'}."
+                ).encode("utf-8"),
+                "text/html; charset=utf-8",
+            )
+            return
+
+        form = parse_qs(self._read_body().decode("utf-8", "replace"))
+        supplied = (form.get("password") or [""])[0]
+        nxt = unquote_plus((form.get("next") or ["/"])[0]) or "/"
+        # Only ever redirect within this site - an attacker-supplied absolute
+        # URL here would turn the login page into an open redirect.
+        if not nxt.startswith("/") or nxt.startswith("//"):
+            nxt = "/"
+
+        if auth.check_password(supplied):
+            auth.attempts.clear(client)
+            self._redirect(
+                nxt,
+                cookie=self._session_cookie(auth.make_token(), max_age=auth.SESSION_HOURS * 3600),
+            )
+            return
+
+        auth.attempts.record_failure(client)
+        self._send(
+            401,
+            login_page.render(error="That password was not recognised.", next_path=nxt).encode("utf-8"),
+            "text/html; charset=utf-8",
+        )
+
     def do_POST(self) -> None:  # noqa: N802 - required name
+        if self.path == "/login":
+            self._handle_login()
+            return
+
+        if not self._authenticated():
+            self._deny(self.path)
+            return
+
         if READ_ONLY and self.path in _WRITE_PATHS:
             self._json(
                 403,
@@ -121,8 +251,7 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
         try:
-            length = int(self.headers.get("Content-Length") or 0)
-            request = json.loads(self.rfile.read(length) or b"{}")
+            request = json.loads(self._read_body() or b"{}")
         except (ValueError, TypeError):
             self._json(400, {"ok": False, "message": "Could not read the request."})
             return

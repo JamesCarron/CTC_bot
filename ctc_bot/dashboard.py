@@ -386,6 +386,9 @@ _TEMPLATE = r"""<!doctype html>
   button:hover { border-color:var(--s1); }
   button.primary { background:var(--s1); color:#fff; border-color:var(--s1); }
   main { max-width:1180px; margin:0 auto; padding:20px; }
+  a.signout { font-size:13px; color:var(--ink-2); text-decoration:none;
+              border:1px solid var(--axis); border-radius:8px; padding:6px 10px; }
+  a.signout:hover { border-color:var(--s1); color:var(--s1); }
   section { background:var(--surface); border:1px solid var(--border);
             border-radius:var(--radius); padding:18px; margin-bottom:18px; }
   h2 { margin:0 0 4px; font-size:15px; letter-spacing:-0.01em; }
@@ -469,6 +472,7 @@ _TEMPLATE = r"""<!doctype html>
   <span class="sub" id="headline"></span>
   <span class="spacer"></span>
   <button id="theme" title="Switch light/dark">Theme</button>
+  <a class="signout" href="/logout">Sign out</a>
 </header>
 
 <main>

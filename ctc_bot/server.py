@@ -18,6 +18,7 @@ from pathlib import Path
 
 from . import dashboard
 from . import identity as idn
+from . import overrides as ovr
 from . import store
 
 HOST = "127.0.0.1"
@@ -64,7 +65,10 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(404, {"ok": False, "message": "Not found"})
 
     def do_POST(self) -> None:  # noqa: N802 - required name
-        if self.path not in ("/api/claim", "/api/adopt", "/api/disown"):
+        if self.path not in (
+            "/api/claim", "/api/adopt", "/api/disown",
+            "/api/edit-time", "/api/reset-time", "/api/add-result", "/api/remove-result",
+        ):
             self._json(404, {"ok": False, "message": "Not found"})
             return
 
@@ -88,6 +92,16 @@ class _Handler(BaseHTTPRequestHandler):
                     )
                     return
                 message = claim_athlete(athlete_id, name)
+            elif self.path == "/api/add-result":
+                message = add_result(
+                    athlete_id,
+                    request.get("raceType") or "",
+                    request.get("date") or "",
+                    request.get("seconds"),
+                    title=request.get("title") or "Added by hand",
+                )
+            elif self.path == "/api/remove-result":
+                message = remove_result(str(request.get("additionId") or ""))
             else:
                 if not (athlete_id and event and race_id):
                     self._json(
@@ -95,13 +109,12 @@ class _Handler(BaseHTTPRequestHandler):
                         {"ok": False, "message": "An athlete, event and result are all required."},
                     )
                     return
-                message = (
-                    adopt_row(athlete_id, event, race_id)
-                    if self.path == "/api/adopt"
-                    else disown_row(athlete_id, event, race_id)
-                )
+                message = _row_action(self.path, request, athlete_id, event, race_id)
         except LookupError as exc:
             self._json(404, {"ok": False, "message": str(exc)})
+            return
+        except ValueError as exc:
+            self._json(400, {"ok": False, "message": str(exc)})
             return
 
         self._json(200, {"ok": True, "message": message})
@@ -169,6 +182,111 @@ def search_rows(query: str, limit: int = 60) -> list[dict]:
         )
     rows.sort(key=lambda r: r["date"] or "", reverse=True)
     return rows[:limit]
+
+
+def _parse_seconds(value) -> float:
+    """Read a time given either as seconds or as mm:ss(.s) / h:mm:ss(.s)."""
+    if value is None or value == "":
+        raise ValueError("A time is required.")
+    text = str(value).strip()
+    if ":" in text:
+        parts = text.split(":")
+        if len(parts) > 3:
+            raise ValueError(f"Could not read the time {text!r}.")
+        try:
+            total = 0.0
+            for part in parts:
+                total = total * 60 + float(part)
+        except ValueError:
+            raise ValueError(f"Could not read the time {text!r}. Try 25:37.2") from None
+        return total
+    try:
+        return float(text)
+    except ValueError:
+        raise ValueError(f"Could not read the time {text!r}. Try 25:37.2") from None
+
+
+def _row_action(path: str, request: dict, athlete_id: str, event: str, race_id: str) -> str:
+    if path == "/api/adopt":
+        return adopt_row(athlete_id, event, race_id)
+    if path == "/api/disown":
+        return disown_row(athlete_id, event, race_id)
+    if path == "/api/edit-time":
+        return edit_time(event, race_id, request.get("time"))
+    return reset_time(event, race_id)
+
+
+def edit_time(event: str, race_id: str, value) -> str:
+    """Correct one published time, keeping the original for reset."""
+    seconds = _parse_seconds(value)
+
+    stored = next((s for s in _curated_events() if s.code == event), None)
+    if stored is None:
+        raise LookupError("That event is not in the local store.")
+    row = _find_row(stored, race_id)
+    if row is None:
+        raise LookupError("That result is not in the event.")
+
+    try:
+        published = float(row.get("TmResultSec"))
+    except (TypeError, ValueError):
+        published = 0.0
+
+    corrections = ovr.Overrides.load()
+    corrections.edit_time(event, race_id, seconds, published)
+    corrections.save()
+    return (
+        f"Time set to {idn.format_time(seconds)} "
+        f"(published: {idn.format_time(published)}). The original is kept, so this can be reset."
+    )
+
+
+def reset_time(event: str, race_id: str) -> str:
+    """Drop a correction and restore the published time."""
+    corrections = ovr.Overrides.load()
+    removed = corrections.reset_time(event, race_id)
+    if removed is None:
+        raise LookupError("That result has not been corrected.")
+    corrections.save()
+    return f"Restored the published time, {idn.format_time(removed.original_seconds)}."
+
+
+def add_result(athlete_id: str, race_type: str, when: str, value, *, title: str) -> str:
+    """Record a race the timing system never captured."""
+    if not athlete_id:
+        raise ValueError("An athlete is required.")
+    if race_type not in ("time_trial", "aquathon"):
+        raise ValueError(f"Unknown race type {race_type!r}.")
+
+    registry = idn.Registry.load()
+    if athlete_id not in registry.athletes:
+        raise LookupError(
+            "Confirm who this athlete is first - a hand-added result has to "
+            "belong to a confirmed person."
+        )
+
+    seconds = _parse_seconds(value)
+    corrections = ovr.Overrides.load()
+    addition = corrections.add_result(
+        athlete_id, race_type, when, seconds, title=title
+    )
+    corrections.save()
+    return (
+        f"Added {idn.format_time(seconds)} on {addition.when}. It is marked as "
+        "added by hand and can be removed again."
+    )
+
+
+def remove_result(addition_id: str) -> str:
+    """Delete a hand-added result."""
+    if not addition_id:
+        raise ValueError("A result is required.")
+    corrections = ovr.Overrides.load()
+    removed = corrections.remove_result(addition_id)
+    if removed is None:
+        raise LookupError("No such hand-added result.")
+    corrections.save()
+    return f"Removed the hand-added result from {removed.when}."
 
 
 def adopt_row(athlete_id: str, event: str, race_id: str) -> str:

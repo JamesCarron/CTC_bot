@@ -96,6 +96,14 @@ def build_payload(stored_events, registry: idn.Registry) -> dict:
                     # Only a directly claimed row can be released again; an
                     # inferred one follows the name, not a decision about it.
                     "claimed": performance.source == idn.CLAIMED,
+                    "edited": performance.edited,
+                    "manual": performance.manual,
+                    "originalTime": (
+                        _format_time(performance.original_seconds)
+                        if performance.original_seconds
+                        else None
+                    ),
+                    "additionId": performance.addition_id,
                     "legs": [round(x, 1) for x in performance.leg_seconds],
                 }
             )
@@ -402,6 +410,14 @@ _TEMPLATE = r"""<!doctype html>
   .link-btn:hover { background:var(--plane); text-decoration:underline; }
   .link-btn.disown { color:var(--bad); }
   .link-btn:disabled { opacity:.5; cursor:default; text-decoration:none; }
+  .nowrap { white-space:nowrap; }
+  /* Corrected and hand-added results are never presented as if they came
+     straight from the timing system. */
+  tr.edited, tr.manual { background:color-mix(in srgb, var(--s2) 7%, transparent); }
+  tr.manual td:first-child { box-shadow:inset 3px 0 0 var(--s2); }
+  tr.edited td:first-child { box-shadow:inset 3px 0 0 var(--s2); }
+  .pill.mark { border-color:var(--s2); color:var(--s2); margin-left:6px; }
+  .was { font-size:11px; color:var(--muted); text-decoration:line-through; }
 </style>
 </head>
 <body>
@@ -628,9 +644,15 @@ function lineChart(runs, key) {
   const dots = pts.map(p => {
     const t = `<b>${p.time}</b> · ${fmt(p.speed,1)} km/h<br>${p.date} · ${esc(p.title||"")}<br>` +
               `#${p.position} of ${p.field}${p.z!==null?` · z ${p.z>0?"+":""}${p.z}`:""}${p.pb?" · personal best":""}`;
-    return `<circle cx="${sx(new Date(p.date).getTime()).toFixed(1)}" cy="${sy(p.speed).toFixed(1)}"
-      r="${p.pb ? 6 : 4.5}" fill="${p.pb ? "var(--good)" : color}"
-      stroke="var(--surface)" stroke-width="2" data-t="${esc(t)}" style="cursor:pointer"/>`;
+    const cx = sx(new Date(p.date).getTime()).toFixed(1), cy = sy(p.speed).toFixed(1);
+    const amended = p.manual || p.edited;
+    const note = p.manual ? " · added by hand" : p.edited ? ` · corrected from ${p.originalTime}` : "";
+    // Amended points are drawn hollow in the warning hue, so a chart never
+    // presents a hand-entered figure as if the timer produced it.
+    return `<circle cx="${cx}" cy="${cy}" r="${p.pb ? 6 : 4.5}"
+      fill="${amended ? "var(--surface)" : p.pb ? "var(--good)" : color}"
+      stroke="${amended ? "var(--s2)" : "var(--surface)"}" stroke-width="${amended ? 2.5 : 2}"
+      data-t="${esc(t + note)}" style="cursor:pointer"/>`;
   }).join("");
 
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Speed over time">
@@ -715,7 +737,10 @@ function showAthlete(a) {
   html += `<figure style="margin-top:16px">
     <div class="tabs year-tabs">${yearTabs}</div>
     <div class="legend"><span><i style="background:${colorOf(state.series)}"></i>${esc(s.label)}</span>
-      <span><i style="background:var(--good)"></i>personal best</span></div>
+      <span><i style="background:var(--good)"></i>personal best</span>
+      ${allRuns.some(r => r.manual || r.edited)
+        ? '<span><i style="background:var(--surface);box-shadow:inset 0 0 0 2px var(--s2)"></i>corrected or added by hand</span>'
+        : ""}</div>
     ${lineChart(runs, state.series)}
     <figcaption>${verdict}</figcaption>
   </figure>
@@ -723,15 +748,17 @@ function showAthlete(a) {
   <div class="scroll"><table>
     <thead><tr><th>Date</th><th class="num">Time</th><th class="num">km/h</th>
       ${a.verified ? "<th></th>" : ""}</tr></thead>
-    <tbody>${allRuns.slice().reverse().map(r => `<tr>
-      <td>${r.date}</td>
-      <td class="num">${r.time}${r.pb ? ' <span class="pill pb">PB</span>' : ""}</td>
+    <tbody>${allRuns.slice().reverse().map(r => `<tr class="${r.manual ? "manual" : r.edited ? "edited" : ""}">
+      <td>${r.date}
+        ${r.manual ? '<span class="pill mark" title="Never recorded by the timing system">added by hand</span>' : ""}
+        ${r.edited ? `<span class="pill mark" title="Published time was ${esc(r.originalTime || "")}">corrected</span>` : ""}
+      </td>
+      <td class="num">${r.time}${r.pb ? ' <span class="pill pb">PB</span>' : ""}
+        ${r.edited ? `<div class="was">was ${esc(r.originalTime || "")}</div>` : ""}
+      </td>
       <td class="num">${fmt(r.speed)}</td>
-      ${a.verified ? `<td class="num">${r.claimed
-        ? `<button class="link-btn disown" data-e="${esc(r.event)}" data-r="${esc(r.raceId)}"
-             title="Return this result to the name on the entry list">Not mine</button>`
-        : `<span class="pill" title="Matched by name, not individually confirmed">by name</span>`}</td>` : ""}
-    </tr>`).join("")}</tbody></table></div>` + claimForm(a) + adoptPanel(a);
+      ${a.verified ? `<td class="num nowrap">${rowActions(r)}</td>` : ""}
+    </tr>`).join("")}</tbody></table></div>` + claimForm(a) + adoptPanel(a) + addRacePanel(a);
 
   $("athlete-panel").innerHTML = html;
   $("athlete-panel").querySelectorAll("button.year").forEach(b => {
@@ -740,10 +767,28 @@ function showAthlete(a) {
       showAthlete(a);
     };
   });
-  $("athlete-panel").querySelectorAll("button.disown").forEach(b => {
+  const panel = $("athlete-panel");
+  panel.querySelectorAll("button.disown:not(.remove-added)").forEach(b => {
     b.onclick = () => postRow("/api/disown", a, b.dataset.e, b.dataset.r, b);
   });
+  panel.querySelectorAll("button.reset-time").forEach(b => {
+    b.onclick = () => postRow("/api/reset-time", a, b.dataset.e, b.dataset.r, b);
+  });
+  panel.querySelectorAll("button.edit-time").forEach(b => {
+    b.onclick = () => {
+      const entered = prompt(
+        "Corrected time for this race (e.g. 25:37.2).\n\n" +
+        "The published time is kept, so this can be reset at any point.",
+        b.dataset.t);
+      if (entered === null || !entered.trim()) return;
+      postRow("/api/edit-time", a, b.dataset.e, b.dataset.r, b, { time: entered.trim() });
+    };
+  });
+  panel.querySelectorAll("button.remove-added").forEach(b => {
+    b.onclick = () => postJson("/api/remove-result", { additionId: b.dataset.a }, b, $("row-msg"));
+  });
   wireAdopt(a);
+  wireAddRace(a);
   $("athlete-panel").querySelectorAll("circle[data-t]").forEach(c => {
     c.addEventListener("mousemove", e => showTip(e, c.dataset.t));
     c.addEventListener("mouseleave", hideTip);
@@ -781,6 +826,54 @@ function claimForm(a) {
   </div>`;
 }
 
+/* Per-row controls. A hand-added result can only be removed; a real one can be
+   corrected, reset to its published time, or released back to its entry name. */
+function rowActions(r) {
+  if (r.manual) {
+    return `<button class="link-btn disown remove-added" data-a="${esc(r.additionId)}"
+              title="Delete this hand-added result">Remove</button>`;
+  }
+  const edit = `<button class="link-btn edit-time" data-e="${esc(r.event)}"
+      data-r="${esc(r.raceId)}" data-t="${esc(r.time)}"
+      title="Correct this time">Edit</button>`;
+  const reset = r.edited
+    ? `<button class="link-btn reset-time" data-e="${esc(r.event)}" data-r="${esc(r.raceId)}"
+         title="Restore the published time">Reset</button>`
+    : "";
+  const disown = r.claimed
+    ? `<button class="link-btn disown" data-e="${esc(r.event)}" data-r="${esc(r.raceId)}"
+         title="Return this result to the name on the entry list">Not mine</button>`
+    : `<span class="pill" title="Matched by name, not individually confirmed">by name</span>`;
+  return edit + reset + disown;
+}
+
+/* A race the timing system never captured. */
+function addRacePanel(a) {
+  if (!a.verified) return "";
+  const types = DATA.series.map(s => {
+    const raceType = s.key.split("|")[0];
+    return `<option value="${esc(raceType)}">${esc(s.label)}</option>`;
+  }).join("");
+  return `<div class="claim">
+    <h2>Add a race that was never recorded</h2>
+    <p class="hint">
+      For a race you rode where the timer missed you entirely, so there is no
+      result to attach. It counts towards your own history and trend, is marked
+      <b>added by hand</b> everywhere it appears, and can be removed again. It
+      carries no finishing position, because there is no field it was measured
+      against.
+    </p>
+    <div class="row">
+      <select id="add-type">${types}</select>
+      <input type="date" id="add-date">
+      <input type="text" id="add-time" placeholder="Time, e.g. 25:37.2" style="width:11em">
+      <input type="text" id="add-title" placeholder="Race name (optional)" style="flex:1 1 160px">
+      <button class="primary" id="add-go">Add this race</button>
+    </div>
+    <div class="msg" id="add-msg"></div>
+  </div>`;
+}
+
 /* Adding or releasing a single result. Only offered once an athlete is
    confirmed: both actions edit that person's claims, and an unconfirmed group
    has none to edit. */
@@ -803,14 +896,14 @@ function adoptPanel(a) {
   </div>`;
 }
 
-async function postRow(url, a, event, raceId, button) {
-  const msg = $("row-msg") || $("claim-msg");
+async function postJson(url, body, button, msg) {
+  msg = msg || $("row-msg") || $("claim-msg");
   if (button) button.disabled = true;
   if (msg) msg.textContent = "Saving…";
   try {
     const res = await fetch(url, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ athleteId: a.id, event, raceId }),
+      body: JSON.stringify(body),
     });
     const out = await res.json();
     if (msg) {
@@ -818,11 +911,28 @@ async function postRow(url, a, event, raceId, button) {
         ? `<span class="good">${esc(out.message)}</span> Refresh to see it applied.`
         : `<span class="bad">${esc(out.message || "Could not save.")}</span>`;
     }
+    return out.ok;
   } catch (e) {
     if (msg) msg.innerHTML = `<span class="bad">No server — open this page via <code>ctc dashboard</code>.</span>`;
+    return false;
   } finally {
     if (button) button.disabled = false;
   }
+}
+
+const postRow = (url, a, event, raceId, button, extra) =>
+  postJson(url, { athleteId: a.id, event, raceId, ...(extra || {}) }, button);
+
+function wireAddRace(a) {
+  const go = $("add-go");
+  if (!go) return;
+  go.onclick = () => postJson("/api/add-result", {
+    athleteId: a.id,
+    raceType: $("add-type").value,
+    date: $("add-date").value,
+    seconds: $("add-time").value,
+    title: $("add-title").value,
+  }, go, $("add-msg"));
 }
 
 function wireAdopt(a) {

@@ -33,6 +33,11 @@ working/*.log
 # Athlete claims: personal data, and local state rather than code.
 # Back this up separately - losing it loses every claim.
 data/identity.json
+
+# Local corrections: hand-entered times and races the timer missed. Local
+# state, not code, and it cannot be regenerated from RaceClocker.
+# Back this up alongside identity.json.
+data/overrides.json
 # pixi environments
 .pixi/*
 !.pixi/config.toml

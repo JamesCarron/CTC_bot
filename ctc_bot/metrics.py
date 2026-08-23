@@ -31,6 +31,7 @@ from datetime import date
 
 from . import config, curation
 from . import identity as idn
+from . import overrides as ovr
 from . import raceclocker as rc
 
 _MONTHS = {
@@ -85,6 +86,10 @@ class Performance:
     field_size: int
     source: str = ""
     contested: bool = False
+    edited: bool = False
+    manual: bool = False
+    original_seconds: float | None = None
+    addition_id: str | None = None
     leg_seconds: list[float] = field(default_factory=list)
     z_score: float | None = None
     percentile: float | None = None
@@ -206,8 +211,18 @@ def _row_seconds(row: dict) -> float | None:
     return seconds if seconds > 0 else None
 
 
-def build(stored_events, registry: idn.Registry) -> dict[str, Athlete]:
-    """Compute every athlete's performance series from curated events."""
+def build(
+    stored_events, registry: idn.Registry, corrections: "ovr.Overrides | None" = None
+) -> dict[str, Athlete]:
+    """Compute every athlete's performance series from curated events.
+
+    Corrections are applied *before* anything is computed, so a corrected time
+    is reflected in the field mean, the finishing order and every z-score in
+    that race - a correction that left everyone else measured against the old
+    mean would be worse than none.
+    """
+    corrections = corrections if corrections is not None else ovr.Overrides.load()
+    stored_events = corrections.apply_times(stored_events)
     included, _ = curation.partition(stored_events)
     resolutions = idn.resolve(included, registry)
     courses = config.load_courses()
@@ -255,6 +270,12 @@ def build(stored_events, registry: idn.Registry) -> dict[str, Athlete]:
                 field_size=field_size,
                 source=resolution.source,
                 contested=resolution.may_be_several_people,
+                edited=bool(row.get("_edited")),
+                original_seconds=(
+                    edit.original_seconds
+                    if (edit := corrections.edit_for(stored.code, row["RaceID"]))
+                    else None
+                ),
                 leg_seconds=rc.leg_seconds(row),
             )
 
@@ -277,8 +298,47 @@ def build(stored_events, registry: idn.Registry) -> dict[str, Athlete]:
             athlete.contested = athlete.contested or resolution.may_be_several_people
             athlete.performances.append(performance)
 
+    _add_manual_results(athletes, corrections, courses)
     _mark_personal_bests(athletes)
     return athletes
+
+
+def _add_manual_results(athletes, corrections, courses) -> None:
+    """Fold in races that the timing system never recorded.
+
+    A hand-added result has no field, so it carries no position, z-score or
+    percentile - there is nothing to have been measured against. It still counts
+    towards the athlete's own history and trend, and is marked everywhere.
+    """
+    for addition in corrections.additions:
+        athlete = athletes.get(addition.athlete_id)
+        if athlete is None:
+            continue  # the athlete was released or renamed since
+        when = date.fromisoformat(addition.when)
+        route = addition.route
+        if route is None:
+            course = config.course_for(addition.race_type, courses)
+            default = course.default_route if course else None
+            route = default.name if default else None
+        athlete.performances.append(
+            Performance(
+                athlete_id=athlete.athlete_id,
+                display_name=athlete.display_name,
+                verified=athlete.verified,
+                event_code=addition.event_code,
+                race_id=addition.id,
+                event_title=addition.title,
+                when=when,
+                race_type=addition.race_type,
+                route=route,
+                distance_km=config.event_distance_km(addition.race_type, None, courses),
+                seconds=addition.seconds,
+                position=0,
+                field_size=0,
+                manual=True,
+                addition_id=addition.id,
+            )
+        )
 
 
 def _mark_personal_bests(athletes: dict[str, Athlete]) -> None:

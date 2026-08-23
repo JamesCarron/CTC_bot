@@ -231,3 +231,59 @@ def test_contested_athletes_are_shown_not_dropped():
     assert lorraine.race_count == 2
     assert lorraine.contested is True
     assert lorraine.verified is False
+
+
+# ---- plausibility --------------------------------------------------------
+
+
+def test_impossible_results_are_dropped():
+    """Hand timing misfires both ways, and both wreck a trend.
+
+    Real examples from the club's history: a start and stop pressed together
+    gave a 7-second time trial (7,097 km/h), and a timer left running gave a
+    24-hour aquathon.
+    """
+    rows = [("Ann", 1500.0), ("Bea", 1600.0), ("Cid", 1700.0),
+            ("Dee", 1800.0), ("Eve", 1900.0), ("Ghost", 7.0), ("Slow", 20000.0)]
+    athletes = metrics.build([make_event("plaus", rows)], idn.Registry())
+
+    assert "name:ghost" not in athletes
+    assert "name:slow" not in athletes
+    assert "name:ann" in athletes
+
+
+def test_impossible_results_are_kept_out_of_the_field_mean():
+    """One 7,097 km/h entry would wreck every z-score in that race."""
+    clean = [("Ann", 1500.0), ("Bea", 1600.0), ("Cid", 1700.0),
+             ("Dee", 1800.0), ("Eve", 1900.0)]
+    with_error = clean + [("Ghost", 7.0)]
+
+    a = metrics.build([make_event("c1", clean)], idn.Registry())["name:ann"]
+    b = metrics.build([make_event("c2", with_error)], idn.Registry())["name:ann"]
+
+    assert a.performances[0].field_size == b.performances[0].field_size == 5
+    assert a.performances[0].z_score == pytest.approx(b.performances[0].z_score)
+
+
+def test_positions_are_recomputed_after_filtering():
+    """A dropped row must not leave a gap in the finishing order."""
+    rows = [("Ghost", 7.0), ("Ann", 1500.0), ("Bea", 1600.0),
+            ("Cid", 1700.0), ("Dee", 1800.0), ("Eve", 1900.0)]
+    athletes = metrics.build([make_event("gap", rows)], idn.Registry())
+    positions = sorted(p.position for a in athletes.values() for p in a.performances)
+    assert positions == [1, 2, 3, 4, 5]
+
+
+def test_an_event_of_mostly_errors_is_excluded_whole():
+    """Two thirds implying 52+ km/h means the event is wrong, not the riders."""
+    rows = [("A", 890.0), ("B", 880.0), ("C", 870.0), ("D", 1500.0), ("E", 1600.0)]
+    event = make_event("broken", rows)
+    verdict = curation.assess_event(event)
+    assert verdict.excluded
+    assert "implausible" in verdict.reason
+
+
+def test_a_few_bad_rows_do_not_condemn_a_good_event():
+    rows = [(f"R{i}", 1500.0 + i * 20) for i in range(10)] + [("Ghost", 7.0)]
+    event = make_event("mostly_ok", rows)
+    assert curation.assess_event(event).include

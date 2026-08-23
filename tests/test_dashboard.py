@@ -60,20 +60,102 @@ def test_trend_present_only_above_the_threshold(payload):
     assert slope > 0  # Ann got faster every year
 
 
+def only_series(payload):
+    assert len(payload["series"]) == 1
+    return payload["series"][0]
+
+
 def test_latest_race_is_the_most_recent(payload):
-    assert payload["latest"]["title"] == "TT three"
-    assert payload["latest"]["rows"][0]["position"] == 1
+    latest = only_series(payload)["latest"]
+    assert latest["title"] == "TT three"
+    assert latest["rows"][0]["position"] == 1
 
 
 def test_latest_race_reports_change_against_the_athletes_own_average(payload):
-    ann = next(r for r in payload["latest"]["rows"] if r["name"] == "Ann")
+    ann = next(r for r in only_series(payload)["latest"]["rows"] if r["name"] == "Ann")
     # 1700 against a prior mean of (1800+1750)/2 = 1775 -> 75s faster
     assert ann["vsAverage"] == pytest.approx(-75.0)
 
 
 def test_first_race_has_no_comparison(events):
     payload = dashboard.build_payload(events[:1], idn.Registry())
-    assert all(row["vsAverage"] is None for row in payload["latest"]["rows"])
+    assert all(row["vsAverage"] is None for row in only_series(payload)["latest"]["rows"])
+
+
+# ---- series tabs ---------------------------------------------------------
+
+
+def test_each_series_gets_its_own_tab(events):
+    """One tab per enabled series, each with its own counts and latest race."""
+    events.append(
+        make_event("aq1", [("Ann", 1560.0), ("Bea", 1600.0), ("Cid", 1700.0),
+                           ("Dee", 1800.0), ("Eve", 1900.0)],
+                   race_type=cls.AQUATHON, listed_km=8.0,
+                   date_text="Thursday 4 Sep '26, 19:00", title="Aquathon one")
+    )
+    payload = dashboard.build_payload(events, idn.Registry())
+    keys = [s["key"] for s in payload["series"]]
+
+    assert "aquathon" in keys
+    assert any(k.startswith("time_trial|") for k in keys)
+    for series in payload["series"]:
+        assert series["races"] >= 1
+        assert series["latest"]["rows"]
+
+
+def test_aquathon_tab_comes_first(events):
+    events.append(
+        make_event("aq2", [("Ann", 1560.0)], race_type=cls.AQUATHON, listed_km=8.0,
+                   date_text="Thursday 4 Sep '26, 19:00", title="Aquathon one")
+    )
+    payload = dashboard.build_payload(events, idn.Registry())
+    assert payload["series"][0]["key"] == "aquathon"
+
+
+def test_a_disabled_route_is_absent_from_the_page(events, monkeypatch):
+    """The retired 13.8 km route is hidden, not deleted."""
+    from ctc_bot import config
+
+    events.append(
+        make_event("long1", [("Ann", 1900.0)], listed_km=13.8,
+                   date_text="Tuesday 15 Sep '26, 19:00", title="Long route TT")
+    )
+    payload = dashboard.build_payload(events, idn.Registry())
+
+    keys = [s["key"] for s in payload["series"]]
+    assert "time_trial|Long (13.8 km)" not in keys
+    assert any(h["distance"] == 13.8 for h in payload["hidden"])
+
+    # and no athlete carries a run from the hidden series
+    for athlete in payload["athletes"]:
+        assert all(run["series"] in keys for run in athlete["runs"])
+
+
+def test_enabling_a_route_brings_its_history_back(events, tmp_path):
+    """Hiding is reversible with no refetch - the events were never dropped."""
+    from ctc_bot import config
+
+    events.append(
+        make_event("long2", [("Zoe", 1900.0)], listed_km=13.8,
+                   date_text="Tuesday 15 Sep '26, 19:00", title="Long route TT")
+    )
+    assert not any(a["name"] == "Zoe" for a in dashboard.build_payload(events, idn.Registry())["athletes"])
+
+    path = tmp_path / "courses.json"
+    courses = config.load_courses()
+    for route in courses[cls.TIME_TRIAL].routes:
+        route.enabled = True
+    config.save_courses(courses, path)
+
+    original = config.CONFIG_PATH
+    config.CONFIG_PATH = path
+    try:
+        payload = dashboard.build_payload(events, idn.Registry())
+    finally:
+        config.CONFIG_PATH = original
+
+    assert any(a["name"] == "Zoe" for a in payload["athletes"])
+    assert "time_trial|Long (13.8 km)" in [s["key"] for s in payload["series"]]
 
 
 def test_standings_are_ranked_by_speed(payload):

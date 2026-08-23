@@ -12,15 +12,19 @@
         "name": "Short (13 km)",
         "distance_km": 13.0,
         "min_km": 12.75,
-        "max_km": 13.25
+        "max_km": 13.25,
+        "enabled": true
       },
       {
         "name": "Long (13.8 km)",
         "distance_km": 13.8,
         "min_km": 13.4,
-        "max_km": 14.25
+        "max_km": 14.25,
+        "enabled": false
       }
-    ]
+    ],
+    "min_speed_kmh": 10.0,
+    "max_speed_kmh": 50.0
   },
   "aquathon": {
     "name": "Aquathon",
@@ -34,6 +38,8 @@
         "distance_km": 3.5
       }
     ],
-    "routes": []
+    "routes": [],
+    "min_speed_kmh": 3.0,
+    "max_speed_kmh": 14.0
   }
 }

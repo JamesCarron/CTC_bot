@@ -56,6 +56,13 @@ class Route:
     distance_km: float
     min_km: float
     max_km: float
+    enabled: bool = True
+    """Whether this route gets a tab in the dashboard.
+
+    A retired route is disabled rather than deleted: its events stay stored,
+    parsed and correctly attributed, so re-enabling it brings the history back
+    without a refetch.
+    """
 
     def matches(self, listed_km: float | None) -> bool:
         return listed_km is not None and self.min_km <= listed_km <= self.max_km
@@ -73,6 +80,29 @@ class Course:
     name: str
     legs: list[Leg] = field(default_factory=list)
     routes: list[Route] = field(default_factory=list)
+    min_speed_kmh: float = 0.0
+    max_speed_kmh: float = 1e6
+    """Plausibility bounds, as average speed over the whole course.
+
+    Club timing is done by hand and misfires in both directions: a start and
+    stop pressed together gives a 7-second "time trial" at 7,097 km/h, and a
+    timer left running gives a 24-hour aquathon. Results outside these bounds
+    are dropped from every figure rather than quietly skewing an athlete's
+    trend or a field's mean.
+
+    Expressed as speed rather than duration so the bounds still hold if an
+    admin restates the course distance.
+    """
+
+    def is_plausible(self, seconds: float, distance_km: float | None = None) -> bool:
+        """Whether a finish time could really have been ridden or run."""
+        if seconds <= 0:
+            return False
+        km = distance_km if distance_km is not None else self.distance_km
+        if not km:
+            return True
+        speed = km / (seconds / 3600)
+        return self.min_speed_kmh <= speed <= self.max_speed_kmh
 
     @property
     def default_route(self) -> Route | None:
@@ -109,11 +139,30 @@ DEFAULT_COURSES: dict[str, Course] = {
         legs=[Leg("Bike", 13.0)],
         routes=[
             Route("Short (13 km)", 13.0, 12.75, 13.25),
-            Route("Long (13.8 km)", 13.8, 13.4, 14.25),
+            # Retired: last run June 2025, superseded by the 13 km route.
+            Route("Long (13.8 km)", 13.8, 13.4, 14.25, enabled=False),
         ],
+        # Real club times run 18-47 km/h. Anything past 50 is a mis-timed start
+        # or stop, not a rider; anything under 10 is a timer left running.
+        min_speed_kmh=10.0,
+        max_speed_kmh=50.0,
     ),
-    AQUATHON: Course(name="Aquathon", legs=[Leg("Swim", 0.6), Leg("Run", 3.5)]),
+    AQUATHON: Course(
+        name="Aquathon",
+        legs=[Leg("Swim", 0.6), Leg("Run", 3.5)],
+        # Real times cluster at 5-12 km/h over the combined 4.1 km. The tails
+        # are 24-hour timers at one end and 40-second "races" at the other.
+        min_speed_kmh=3.0,
+        max_speed_kmh=14.0,
+    ),
 }
+
+
+def _default_bound(race_type: str, which: str) -> float:
+    course = DEFAULT_COURSES.get(race_type)
+    if course is None:
+        return 0.0 if which == "min" else 1e6
+    return course.min_speed_kmh if which == "min" else course.max_speed_kmh
 
 
 def load_courses(path: Path | None = None) -> dict[str, Course]:
@@ -126,7 +175,12 @@ def load_courses(path: Path | None = None) -> dict[str, Course]:
             key: Course(
                 course.name,
                 [Leg(leg.name, leg.distance_km) for leg in course.legs],
-                [Route(r.name, r.distance_km, r.min_km, r.max_km) for r in course.routes],
+                [
+                    Route(r.name, r.distance_km, r.min_km, r.max_km, r.enabled)
+                    for r in course.routes
+                ],
+                course.min_speed_kmh,
+                course.max_speed_kmh,
             )
             for key, course in DEFAULT_COURSES.items()
         }
@@ -137,12 +191,17 @@ def load_courses(path: Path | None = None) -> dict[str, Course]:
         courses[race_type] = Course(
             name=spec.get("name", race_type),
             legs=[Leg(leg["name"], float(leg["distance_km"])) for leg in spec.get("legs", [])],
+            # Fall back to the built-in bounds, not to "no limit": a config
+            # written before these existed must not silently disable filtering.
+            min_speed_kmh=float(spec.get("min_speed_kmh", _default_bound(race_type, "min"))),
+            max_speed_kmh=float(spec.get("max_speed_kmh", _default_bound(race_type, "max"))),
             routes=[
                 Route(
                     r["name"],
                     float(r["distance_km"]),
                     float(r["min_km"]),
                     float(r["max_km"]),
+                    bool(r.get("enabled", True)),
                 )
                 for r in spec.get("routes", [])
             ],
@@ -180,6 +239,37 @@ def leg_distances_km(race_type: str, courses: dict[str, Course] | None = None) -
     """Configured distance of each timed leg, in order."""
     course = course_for(race_type, courses)
     return [leg.distance_km for leg in course.legs] if course else []
+
+
+def is_plausible(
+    race_type: str,
+    seconds: float,
+    distance_km: float | None = None,
+    courses: dict[str, Course] | None = None,
+) -> bool:
+    """Whether one result is physically believable for its race type."""
+    course = course_for(race_type, courses)
+    return course.is_plausible(seconds, distance_km) if course else seconds > 0
+
+
+def enabled_routes(race_type: str, courses: dict[str, Course] | None = None) -> list[Route]:
+    course = course_for(race_type, courses)
+    return [r for r in course.routes if r.enabled] if course else []
+
+
+def is_series_enabled(
+    race_type: str, route_name: str | None, courses: dict[str, Course] | None = None
+) -> bool:
+    """Whether a race type + route combination should be shown.
+
+    A race type with no configured routes (the aquathon) is always shown.
+    """
+    course = course_for(race_type, courses)
+    if course is None or not course.routes:
+        return True
+    if route_name is None:
+        return True
+    return any(r.name == route_name and r.enabled for r in course.routes)
 
 
 def route_for_event(

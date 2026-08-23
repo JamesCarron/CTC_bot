@@ -44,13 +44,19 @@ def build_payload(stored_events, registry: idn.Registry) -> dict:
     athletes = metrics.build(stored_events, registry)
     courses = config.load_courses()
 
-    latest_date, latest_stored = metrics.latest_event(stored_events)
+    # Only series whose route is enabled reach the page at all. A retired route
+    # is hidden rather than deleted: its events stay stored and re-enabling it
+    # in data/courses.json brings the whole history back with no refetch.
+    def enabled(performance) -> bool:
+        return config.is_series_enabled(performance.race_type, performance.route, courses)
 
     # --- athletes ---
     athlete_payload = []
     for athlete in athletes.values():
         runs = []
-        for performance in sorted(athlete.performances, key=lambda p: p.when):
+        for performance in sorted(
+            (p for p in athlete.performances if enabled(p)), key=lambda p: p.when
+        ):
             runs.append(
                 {
                     "date": performance.when.isoformat(),
@@ -70,8 +76,13 @@ def build_payload(stored_events, registry: idn.Registry) -> dict:
                 }
             )
 
+        if not runs:
+            continue
+
         trends = {}
         for key in athlete.series_keys:
+            if not any(r["series"] == key for r in runs):
+                continue
             fitted = athlete.trend(key)
             if fitted:
                 trends[key] = {"slope": round(fitted[0], 2), "r2": round(fitted[1], 2)}
@@ -82,70 +93,71 @@ def build_payload(stored_events, registry: idn.Registry) -> dict:
                 "name": athlete.display_name,
                 "verified": athlete.verified,
                 "contested": athlete.contested,
-                "races": athlete.race_count,
-                "first": athlete.first_raced.isoformat(),
-                "last": athlete.last_raced.isoformat(),
+                "races": len(runs),
+                "first": runs[0]["date"],
+                "last": runs[-1]["date"],
                 "runs": runs,
                 "trends": trends,
             }
         )
     athlete_payload.sort(key=lambda a: (-a["races"], a["name"].casefold()))
 
-    # --- latest race ---
-    latest = None
-    if latest_stored is not None:
-        rows = []
-        for athlete in athletes.values():
-            for performance in athlete.performances:
-                if performance.event_code == latest_stored.code:
-                    same_series = [
-                        p for p in athlete.in_series(performance.series) if p.when < performance.when
-                    ]
-                    previous = (
-                        sum(p.seconds for p in same_series) / len(same_series)
-                        if same_series
-                        else None
-                    )
-                    rows.append(
-                        {
-                            "name": athlete.display_name,
-                            "id": athlete.athlete_id,
-                            "position": performance.position,
-                            "time": _format_time(performance.seconds),
-                            "speed": round(performance.speed_kmh, 1) if performance.speed_kmh else None,
-                            "pb": performance.is_personal_best,
-                            "vsAverage": round(performance.seconds - previous, 1) if previous else None,
-                        }
-                    )
-        rows.sort(key=lambda r: r["position"])
-        latest = {
-            "code": latest_stored.code,
-            "title": latest_stored.title,
-            "date": latest_date.isoformat(),
-            "dateText": latest_stored.date_text,
-            "series": series_label(
-                f"{latest_stored.race_type}|"
-                + (
-                    config.route_for_event(
-                        latest_stored.race_type,
-                        latest_stored.listing.get("listed_distance_km"),
-                        courses,
-                    ).name
-                    if config.route_for_event(
-                        latest_stored.race_type,
-                        latest_stored.listing.get("listed_distance_km"),
-                        courses,
-                    )
-                    else ""
-                )
-                if latest_stored.race_type != "aquathon"
-                else "aquathon"
-            ),
-            "rows": rows,
-        }
+    # --- per-series metadata, latest race and standings ---
+    series_keys = sorted({run["series"] for a in athlete_payload for run in a["runs"]})
 
-    # --- standings, per series ---
-    series_keys = sorted({p.series for a in athletes.values() for p in a.performances})
+    def latest_in(key):
+        """The most recent race in one series, with each athlete's change."""
+        runs = [
+            (a, run) for a in athlete_payload for run in a["runs"] if run["series"] == key
+        ]
+        if not runs:
+            return None
+        newest = max(run["date"] for _, run in runs)
+        rows = []
+        for athlete_row, run in runs:
+            if run["date"] != newest:
+                continue
+            earlier = [
+                r["seconds"]
+                for r in athlete_row["runs"]
+                if r["series"] == key and r["date"] < newest
+            ]
+            average = sum(earlier) / len(earlier) if earlier else None
+            rows.append(
+                {
+                    "name": athlete_row["name"],
+                    "id": athlete_row["id"],
+                    "position": run["position"],
+                    "time": run["time"],
+                    "speed": run["speed"],
+                    "pb": run["pb"],
+                    "vsAverage": round(run["seconds"] - average, 1) if average else None,
+                }
+            )
+        rows.sort(key=lambda r: r["position"])
+        title = next(
+            (run["title"] for _, run in runs if run["date"] == newest), None
+        )
+        return {"date": newest, "title": title, "rows": rows}
+
+    series_payload = []
+    for key in series_keys:
+        runs = [run for a in athlete_payload for run in a["runs"] if run["series"] == key]
+        people = [a for a in athlete_payload if any(r["series"] == key for r in a["runs"])]
+        series_payload.append(
+            {
+                "key": key,
+                "label": series_label(key),
+                "races": len({run["event"] for run in runs}),
+                "results": len(runs),
+                "athletes": len(people),
+                "first": min(run["date"] for run in runs),
+                "last": max(run["date"] for run in runs),
+                "latest": latest_in(key),
+            }
+        )
+    series_payload.sort(key=lambda s: (s["key"] != "aquathon", s["label"]))
+
     standings_payload = {}
     for key in series_keys:
         table = metrics.standings(athletes, key)
@@ -178,19 +190,26 @@ def build_payload(stored_events, registry: idn.Registry) -> dict:
     return {
         "generated": date.today().isoformat(),
         "summary": {
-            "races": len(included),
             "excluded": len(excluded),
+            "curated": len(included),
             "athletes": len(athlete_payload),
             "results": sum(a["races"] for a in athlete_payload),
             "firstSeason": min((a["first"] for a in athlete_payload), default=""),
             "lastSeason": max((a["last"] for a in athlete_payload), default=""),
+            "races": len({run["event"] for a in athlete_payload for run in a["runs"]}),
             "minRacesForTrend": idn.MIN_RACES_FOR_TREND,
             "minFieldForStats": curation.MIN_FIELD_FOR_STATS,
             "verified": sum(1 for a in athlete_payload if a["verified"]),
         },
         "seriesLabels": {key: series_label(key) for key in series_keys},
+        "series": series_payload,
+        "hidden": [
+            {"label": series_label(f"{race_type}|{route.name}"), "distance": route.distance_km}
+            for race_type, course in courses.items()
+            for route in course.routes
+            if not route.enabled
+        ],
         "athletes": athlete_payload,
-        "latest": latest,
         "standings": standings_payload,
         "courses": course_payload,
         "excluded": [
@@ -332,8 +351,15 @@ _TEMPLATE = r"""<!doctype html>
   .tooltip { position:fixed; pointer-events:none; z-index:50; background:var(--surface);
              border:1px solid var(--axis); border-radius:8px; padding:7px 9px; font-size:12.5px;
              box-shadow:0 6px 18px rgba(0,0,0,.14); opacity:0; transition:opacity .08s; }
-  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
-  .tabs button[aria-selected="true"] { background:var(--s1); color:#fff; border-color:var(--s1); }
+  .series-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+  .series-tabs button {
+    padding:9px 16px; border-radius:999px; font-weight:600; font-size:14px;
+    background:var(--surface); border:1px solid var(--axis);
+  }
+  .series-tabs button[aria-selected="true"] {
+    background:var(--s1); color:#fff; border-color:var(--s1);
+  }
+  .series-tabs button .c { font-weight:400; opacity:.75; margin-left:6px; font-size:12.5px; }
   details { margin-top:10px; }
   summary { cursor:pointer; color:var(--ink-2); font-size:13px; }
   .note { border-left:3px solid var(--s2); padding:6px 10px; margin:10px 0;
@@ -353,9 +379,11 @@ _TEMPLATE = r"""<!doctype html>
 </header>
 
 <main>
+  <nav class="series-tabs" id="series-tabs" role="tablist" aria-label="Race series"></nav>
+
   <section>
-    <h2>The club, at a glance</h2>
-    <p class="hint" id="range"></p>
+    <h2 id="series-title"></h2>
+    <p class="hint" id="series-sub"></p>
     <div class="tiles" id="tiles"></div>
   </section>
 
@@ -367,11 +395,7 @@ _TEMPLATE = r"""<!doctype html>
 
   <section>
     <h2>Am I improving?</h2>
-    <p class="hint">
-      Pick an athlete. Each course is trended separately, because times on
-      different routes are not comparable. A fitted direction needs at least
-      <span id="min-races"></span> races on that course.
-    </p>
+    <p class="hint" id="trend-hint"></p>
     <div class="grid2">
       <div>
         <div class="row">
@@ -385,14 +409,14 @@ _TEMPLATE = r"""<!doctype html>
 
   <section>
     <h2>Club standings</h2>
-    <p class="hint">Ranked by each athlete's fastest time on that course.</p>
-    <div class="tabs" id="series-tabs" role="tablist"></div>
+    <p class="hint">Ranked by each athlete's fastest time on this course.</p>
     <div class="scroll"><table id="standings"></table></div>
   </section>
 
   <section>
     <h2>How this is measured</h2>
     <div id="courses"></div>
+    <div id="hidden-note"></div>
     <details>
       <summary>Events excluded from these figures (<span id="exc-count"></span>)</summary>
       <div class="scroll"><table id="excluded"></table></div>
@@ -405,17 +429,25 @@ const DATA = /*__DATA__*/null;
 const $ = (id) => document.getElementById(id);
 const fmt = (n, d=1) => n === null || n === undefined ? "—" : n.toFixed(d);
 const SERIES_COLORS = ["var(--s1)", "var(--s2)", "var(--s3)"];
-const seriesKeys = Object.keys(DATA.seriesLabels);
+const seriesKeys = DATA.series.map(s => s.key);
 const colorOf = (key) => SERIES_COLORS[seriesKeys.indexOf(key) % SERIES_COLORS.length];
-const label = (key) => DATA.seriesLabels[key] || key;
+const seriesOf = (key) => DATA.series.find(s => s.key === key);
+const S = DATA.summary;
+
+const state = { series: seriesKeys[0], athlete: null, filter: "" };
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+}
+const year = (iso) => (iso || "").slice(0, 4);
 
 /* ---------- theme ---------- */
 $("theme").onclick = () => {
   const root = document.documentElement;
   const dark = getComputedStyle(root).getPropertyValue("--plane").trim() === "#0d0d0d";
   root.setAttribute("data-theme", dark ? "light" : "dark");
-  if (state.athlete) showAthlete(state.athlete);
-  drawStandings();
+  renderSeries();
 };
 
 /* ---------- tooltip ---------- */
@@ -432,67 +464,93 @@ function showTip(evt, html) {
 }
 const hideTip = () => (tip.style.opacity = 0);
 
-/* ---------- summary ---------- */
-const S = DATA.summary;
 $("headline").textContent =
-  `${S.races} races · ${S.athletes} athletes · ${S.results} results`;
-$("range").textContent =
-  `${S.firstSeason.slice(0,4)}–${S.lastSeason.slice(0,4)}. ` +
-  `Field statistics are withheld where fewer than ${S.minFieldForStats} people finished.`;
-$("min-races").textContent = S.minRacesForTrend;
-$("tiles").innerHTML = [
-  [S.races, "races counted"],
-  [S.athletes, "athletes"],
-  [S.results, "results"],
-  [S.verified, "identities confirmed"],
-  [S.excluded, "events excluded"],
-].map(([n, l]) => `<div class="tile"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+  `${S.athletes} athletes · ${S.results} results · ${year(S.firstSeason)}–${year(S.lastSeason)}`;
 
-/* ---------- latest race ---------- */
-if (DATA.latest) {
-  const L = DATA.latest;
-  $("latest-sub").textContent = `${L.title} — ${L.dateText}`;
-  const head = `<thead><tr><th class="num">#</th><th>Athlete</th><th class="num">Time</th>
-    <th class="num">km/h</th><th class="num">vs their average</th><th></th></tr></thead>`;
-  const body = L.rows.map(r => {
-    let vs = "—", cls = "";
-    if (r.vsAverage !== null && r.vsAverage !== undefined) {
-      const faster = r.vsAverage < 0;
-      cls = faster ? "good" : "bad";
-      vs = (faster ? "−" : "+") + Math.abs(r.vsAverage).toFixed(1) + "s";
-    }
-    return `<tr><td class="num">${r.position}</td><td>${esc(r.name)}</td>
-      <td class="num">${r.time}</td><td class="num">${fmt(r.speed)}</td>
-      <td class="num ${cls}">${vs}</td>
-      <td>${r.pb ? '<span class="pill pb">PB</span>' : ""}</td></tr>`;
-  }).join("");
-  $("latest").innerHTML = head + "<tbody>" + body + "</tbody>";
-} else {
-  $("latest-section").remove();
+/* ---------- series tabs ---------- */
+function renderTabs() {
+  $("series-tabs").innerHTML = DATA.series.map(s =>
+    `<button role="tab" data-k="${esc(s.key)}" aria-selected="${s.key === state.series}">
+       ${esc(s.label)}<span class="c">${s.races} races</span></button>`).join("");
+  [...$("series-tabs").querySelectorAll("button")].forEach(b => {
+    b.onclick = () => {
+      if (state.series === b.dataset.k) return;
+      state.series = b.dataset.k;
+      state.athlete = null;
+      renderTabs();
+      renderSeries();
+    };
+  });
 }
 
-function esc(s) {
-  return String(s ?? "").replace(/[&<>"']/g, c =>
-    ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+/* ---------- everything below the tabs ---------- */
+function athletesInSeries() {
+  return DATA.athletes
+    .map(a => ({ ...a, seriesRuns: a.runs.filter(r => r.series === state.series) }))
+    .filter(a => a.seriesRuns.length)
+    .sort((x, y) => y.seriesRuns.length - x.seriesRuns.length ||
+                    x.name.localeCompare(y.name));
 }
 
-/* ---------- athlete list ---------- */
-const state = { athlete: null, series: seriesKeys[0], filter: "" };
+function renderSeries() {
+  const s = seriesOf(state.series);
+  $("series-title").textContent = s.label;
+  $("series-sub").textContent =
+    `${year(s.first)}–${year(s.last)}. Field statistics are withheld where fewer ` +
+    `than ${S.minFieldForStats} people finished.`;
+  $("tiles").innerHTML = [
+    [s.races, "races"],
+    [s.athletes, "athletes"],
+    [s.results, "results"],
+    [S.verified, "identities confirmed"],
+  ].map(([n, l]) => `<div class="tile"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+
+  $("trend-hint").innerHTML =
+    `Pick an athlete to see their ${esc(s.label)} history. A fitted direction ` +
+    `needs at least ${S.minRacesForTrend} races on this course.`;
+
+  renderLatest(s);
+  renderList();
+  renderStandings();
+
+  const people = athletesInSeries();
+  showAthlete(state.athlete
+    ? people.find(a => a.id === state.athlete.id) || people[0]
+    : people[0]);
+}
+
+function renderLatest(s) {
+  const L = s.latest;
+  if (!L) { $("latest-section").style.display = "none"; return; }
+  $("latest-section").style.display = "";
+  $("latest-sub").textContent = `${L.title || ""} — ${L.date}`;
+  $("latest").innerHTML =
+    `<thead><tr><th class="num">#</th><th>Athlete</th><th class="num">Time</th>
+      <th class="num">km/h</th><th class="num">vs their average</th><th></th></tr></thead><tbody>` +
+    L.rows.map(r => {
+      let vs = "—", cls = "";
+      if (r.vsAverage !== null && r.vsAverage !== undefined) {
+        const faster = r.vsAverage < 0;
+        cls = faster ? "good" : "bad";
+        vs = (faster ? "−" : "+") + Math.abs(r.vsAverage).toFixed(1) + "s";
+      }
+      return `<tr><td class="num">${r.position}</td><td>${esc(r.name)}</td>
+        <td class="num">${r.time}</td><td class="num">${fmt(r.speed)}</td>
+        <td class="num ${cls}">${vs}</td>
+        <td>${r.pb ? '<span class="pill pb">PB</span>' : ""}</td></tr>`;
+    }).join("") + "</tbody>";
+}
 
 function renderList() {
   const q = state.filter.trim().toLowerCase();
-  const rows = DATA.athletes
-    .filter(a => !q || a.name.toLowerCase().includes(q))
-    .slice(0, 400);
-  $("list").innerHTML = rows.map(a =>
+  const rows = athletesInSeries().filter(a => !q || a.name.toLowerCase().includes(q));
+  $("list").innerHTML = rows.slice(0, 400).map(a =>
     `<button role="option" data-id="${esc(a.id)}"
        aria-current="${state.athlete && state.athlete.id === a.id}">
-       ${esc(a.name)}
-       <span class="l" style="color:var(--muted)"> · ${a.races} race${a.races === 1 ? "" : "s"}</span>
-       ${a.verified ? "" : ''}
+       ${esc(a.name)}<span style="color:var(--muted)"> · ${a.seriesRuns.length} race${a.seriesRuns.length === 1 ? "" : "s"}</span>
      </button>`).join("") || `<div style="padding:10px;color:var(--ink-2)">No match.</div>`;
   [...$("list").querySelectorAll("button")].forEach(b => {
-    b.onclick = () => showAthlete(DATA.athletes.find(a => a.id === b.dataset.id));
+    b.onclick = () => showAthlete(athletesInSeries().find(a => a.id === b.dataset.id));
   });
 }
 $("search").oninput = (e) => { state.filter = e.target.value; renderList(); };
@@ -501,7 +559,7 @@ $("search").oninput = (e) => { state.filter = e.target.value; renderList(); };
 function lineChart(runs, key) {
   const W = 640, H = 240, m = { t: 14, r: 18, b: 30, l: 46 };
   const pts = runs.filter(r => r.speed !== null);
-  if (pts.length === 0) return "";
+  if (!pts.length) return "";
 
   const xs = pts.map(p => new Date(p.date).getTime());
   const ys = pts.map(p => p.speed);
@@ -513,129 +571,108 @@ function lineChart(runs, key) {
   const sx = v => m.l + ((v - x0) / ((x1 - x0) || 1)) * (W - m.l - m.r);
   const sy = v => H - m.b - ((v - y0) / ((y1 - y0) || 1)) * (H - m.t - m.b);
 
-  const ticks = 4;
   let grid = "";
-  for (let i = 0; i <= ticks; i++) {
-    const v = y0 + (i / ticks) * (y1 - y0), y = sy(v);
+  for (let i = 0; i <= 4; i++) {
+    const v = y0 + (i / 4) * (y1 - y0), y = sy(v);
     grid += `<line x1="${m.l}" x2="${W - m.r}" y1="${y}" y2="${y}" stroke="var(--grid)" stroke-width="1"/>
-             <text x="${m.l - 8}" y="${y + 4}" text-anchor="end" font-size="11"
-                   fill="var(--muted)">${v.toFixed(1)}</text>`;
+             <text x="${m.l - 8}" y="${y + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${v.toFixed(1)}</text>`;
   }
 
-  const years = [...new Set(pts.map(p => p.season))];
   let xlab = "";
-  years.forEach(yr => {
+  [...new Set(pts.map(p => p.season))].forEach(yr => {
     const first = pts.find(p => p.season === yr);
-    const x = sx(new Date(first.date).getTime());
-    xlab += `<text x="${x}" y="${H - 8}" text-anchor="middle" font-size="11"
-                   fill="var(--muted)">${yr}</text>`;
+    xlab += `<text x="${sx(new Date(first.date).getTime())}" y="${H - 8}" text-anchor="middle"
+                   font-size="11" fill="var(--muted)">${yr}</text>`;
   });
 
   const path = pts.map((p, i) =>
-    (i ? "L" : "M") + sx(new Date(p.date).getTime()).toFixed(1) + " " + sy(p.speed).toFixed(1)
-  ).join(" ");
-
+    (i ? "L" : "M") + sx(new Date(p.date).getTime()).toFixed(1) + " " + sy(p.speed).toFixed(1)).join(" ");
   const color = colorOf(key);
   const dots = pts.map(p => {
-    const cx = sx(new Date(p.date).getTime()), cy = sy(p.speed);
-    const r = p.pb ? 6 : 4.5;
-    return `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}"
-      fill="${p.pb ? "var(--good)" : color}" stroke="var(--surface)" stroke-width="2"
-      data-t="${esc(`<b>${p.time}</b> · ${fmt(p.speed,1)} km/h<br>${p.date} · ${esc(p.title||"")}<br>#${p.position} of ${p.field}${p.z!==null?` · z ${p.z>0?"+":""}${p.z}`:""}${p.pb?" · personal best":""}`)}"
-      style="cursor:pointer"/>`;
+    const t = `<b>${p.time}</b> · ${fmt(p.speed,1)} km/h<br>${p.date} · ${esc(p.title||"")}<br>` +
+              `#${p.position} of ${p.field}${p.z!==null?` · z ${p.z>0?"+":""}${p.z}`:""}${p.pb?" · personal best":""}`;
+    return `<circle cx="${sx(new Date(p.date).getTime()).toFixed(1)}" cy="${sy(p.speed).toFixed(1)}"
+      r="${p.pb ? 6 : 4.5}" fill="${p.pb ? "var(--good)" : color}"
+      stroke="var(--surface)" stroke-width="2" data-t="${esc(t)}" style="cursor:pointer"/>`;
   }).join("");
 
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Speed over time">
-    ${grid}
-    <line x1="${m.l}" x2="${W - m.r}" y1="${H - m.b}" y2="${H - m.b}" stroke="var(--axis)"/>
-    <path d="${path}" fill="none" stroke="${color}" stroke-width="2"
-          stroke-linejoin="round" stroke-linecap="round"/>
+    ${grid}<line x1="${m.l}" x2="${W - m.r}" y1="${H - m.b}" y2="${H - m.b}" stroke="var(--axis)"/>
+    <path d="${path}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
     ${dots}${xlab}
     <text x="${m.l - 8}" y="${m.t + 2}" text-anchor="end" font-size="10" fill="var(--muted)">km/h</text>
   </svg>`;
 }
 
-function bindDots(root) {
-  root.querySelectorAll("circle[data-t]").forEach(c => {
-    c.addEventListener("mousemove", e => showTip(e, c.dataset.t));
-    c.addEventListener("mouseleave", hideTip);
-  });
-}
-
 function showAthlete(a) {
-  if (!a) return;
-  state.athlete = a;
+  state.athlete = a || null;
   renderList();
+  if (!a) { $("athlete-panel").innerHTML = ""; return; }
 
-  const bySeries = {};
-  a.runs.forEach(r => (bySeries[r.series] ||= []).push(r));
+  const runs = a.seriesRuns;
+  const s = seriesOf(state.series);
+  const t = a.trends[state.series];
+
+  let verdict;
+  if (!t) {
+    verdict = `Needs ${S.minRacesForTrend} races on this course to fit a direction (has ${runs.length}).`;
+  } else {
+    const dir = t.slope > 0.05 ? "faster" : t.slope < -0.05 ? "slower" : "about level";
+    const cls = t.slope > 0.05 ? "good" : t.slope < -0.05 ? "bad" : "";
+    verdict = `Trending <span class="${cls}">${dir}</span>: ${t.slope > 0 ? "+" : ""}${t.slope} km/h per year (fit r² ${t.r2}).`;
+  }
 
   let html = `<div class="row"><h2 style="margin:0">${esc(a.name)}</h2>
-    ${a.verified
-      ? '<span class="pill">identity confirmed</span>'
-      : a.contested
-        ? '<span class="pill unverified">contested — two people share this name</span>'
-        : '<span class="pill unverified">unverified — may combine more than one person</span>'}
-    <span class="pill">${a.races} race${a.races === 1 ? "" : "s"}</span>
-    <span class="pill">${a.first.slice(0,4)}–${a.last.slice(0,4)}</span></div>`;
+    ${a.verified ? '<span class="pill">identity confirmed</span>'
+      : a.contested ? '<span class="pill unverified">contested — two people share this name</span>'
+      : '<span class="pill unverified">unverified</span>'}
+    <span class="pill">${runs.length} ${esc(s.label)} race${runs.length === 1 ? "" : "s"}</span>
+    <span class="pill">${year(runs[0].date)}–${year(runs[runs.length-1].date)}</span></div>`;
 
   if (a.contested) {
     html += `<div class="note"><b>This name appears twice within a single race.</b>
       That is either two people sharing it, or one person entered twice — the club's
-      history has both. The results are all shown here rather than hidden, but they
-      almost certainly do not all belong to one person, so treat the trend with care.
-      Claiming below will separate them.</div>`;
+      history has both. All the results are shown rather than hidden, but they almost
+      certainly do not all belong to one person. Claiming below will separate them.</div>`;
   } else if (!a.verified) {
     html += `<div class="note">Grouped only by the exact name typed on the entry list.
-      Over seven years that may be more than one person. Claim these results below to confirm.</div>`;
+      Over seven years that may be more than one person. Claim these results to confirm.</div>`;
   }
 
-  Object.keys(bySeries).sort().forEach(key => {
-    const runs = bySeries[key];
-    const t = a.trends[key];
-    let verdict;
-    if (!t) {
-      verdict = `Needs ${S.minRacesForTrend} races on this course to fit a direction (has ${runs.length}).`;
-    } else {
-      const dir = t.slope > 0.05 ? "faster" : t.slope < -0.05 ? "slower" : "about level";
-      const cls = t.slope > 0.05 ? "good" : t.slope < -0.05 ? "bad" : "";
-      verdict = `Trending <span class="${cls}">${dir}</span>: ` +
-        `${t.slope > 0 ? "+" : ""}${t.slope} km/h per year (fit r² ${t.r2}).`;
-    }
-    html += `<figure style="margin-top:16px">
-      <div class="legend"><span><i style="background:${colorOf(key)}"></i>${esc(label(key))}</span>
-        <span><i style="background:var(--good)"></i>personal best</span></div>
-      ${lineChart(runs, key)}
-      <figcaption>${verdict}</figcaption>
-    </figure>
-    <div class="scroll"><table>
-      <thead><tr><th>Date</th><th>Race</th><th class="num">Time</th><th class="num">km/h</th>
-        <th class="num">Place</th><th class="num">vs field</th></tr></thead>
-      <tbody>${runs.map(r => `<tr>
-        <td>${r.date}</td><td>${esc(r.title || "")}</td>
-        <td class="num">${r.time}${r.pb ? ' <span class="pill pb">PB</span>' : ""}</td>
-        <td class="num">${fmt(r.speed)}</td>
-        <td class="num">${r.position} / ${r.field}</td>
-        <td class="num">${r.z === null ? "—" : (r.z > 0 ? "+" : "") + r.z}</td>
-      </tr>`).join("")}</tbody></table></div>`;
-  });
+  html += `<figure style="margin-top:16px">
+    <div class="legend"><span><i style="background:${colorOf(state.series)}"></i>${esc(s.label)}</span>
+      <span><i style="background:var(--good)"></i>personal best</span></div>
+    ${lineChart(runs, state.series)}
+    <figcaption>${verdict}</figcaption>
+  </figure>
+  <div class="scroll"><table>
+    <thead><tr><th>Date</th><th>Race</th><th class="num">Time</th><th class="num">km/h</th>
+      <th class="num">Place</th><th class="num">vs field</th></tr></thead>
+    <tbody>${runs.map(r => `<tr>
+      <td>${r.date}</td><td>${esc(r.title || "")}</td>
+      <td class="num">${r.time}${r.pb ? ' <span class="pill pb">PB</span>' : ""}</td>
+      <td class="num">${fmt(r.speed)}</td>
+      <td class="num">${r.position} / ${r.field}</td>
+      <td class="num">${r.z === null ? "—" : (r.z > 0 ? "+" : "") + r.z}</td>
+    </tr>`).join("")}</tbody></table></div>` + claimForm(a);
 
-  html += claimForm(a);
   $("athlete-panel").innerHTML = html;
-  bindDots($("athlete-panel"));
+  $("athlete-panel").querySelectorAll("circle[data-t]").forEach(c => {
+    c.addEventListener("mousemove", e => showTip(e, c.dataset.t));
+    c.addEventListener("mouseleave", hideTip);
+  });
   wireClaim(a);
 }
 
-/* ---------- claim form ---------- */
+/* ---------- claim ---------- */
 function claimForm(a) {
   return `<div class="claim">
     <h2>Are these your results?</h2>
-    <p class="hint">Confirming links every spelling you have raced under, so future
-      races are recognised automatically.</p>
+    <p class="hint">Confirming links every spelling you have raced under — across all
+      series, not just this one — so future races are recognised automatically.</p>
     <div class="row">
-      <input type="text" id="claim-name" placeholder="Your full name" value="${esc(a.name)}"
-             style="flex:1 1 220px">
-      <button class="primary" id="claim-go">Confirm these ${a.races} result${a.races===1?"":"s"} are mine</button>
+      <input type="text" id="claim-name" placeholder="Your full name" value="${esc(a.name)}" style="flex:1 1 220px">
+      <button class="primary" id="claim-go">Confirm all ${a.races} of my results</button>
     </div>
     <div class="msg" id="claim-msg"></div>
   </div>`;
@@ -652,32 +689,20 @@ function wireClaim(a) {
     try {
       const res = await fetch("/api/claim", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          rows: a.runs.map(r => ({ event: r.event, athleteId: a.id })),
-          athleteId: a.id,
-        }),
+        body: JSON.stringify({ name, athleteId: a.id }),
       });
       const out = await res.json();
       msg.innerHTML = out.ok
-        ? `<span class="good">Saved — ${esc(out.message)}</span> Rebuild the page to see it applied.`
+        ? `<span class="good">Saved — ${esc(out.message)}</span> Refresh to see it applied.`
         : `<span class="bad">${esc(out.message || "Could not save.")}</span>`;
     } catch (e) {
-      msg.innerHTML = `<span class="bad">No server. Open this page via <code>ctc dashboard</code>
-        to claim results.</span>`;
+      msg.innerHTML = `<span class="bad">No server. Open this page via <code>ctc dashboard</code> to claim results.</span>`;
     } finally { btn.disabled = false; }
   };
 }
 
 /* ---------- standings ---------- */
-function drawStandings() {
-  $("series-tabs").innerHTML = seriesKeys.map(k =>
-    `<button role="tab" data-k="${esc(k)}" aria-selected="${k === state.series}">
-      ${esc(label(k))}</button>`).join("");
-  [...$("series-tabs").querySelectorAll("button")].forEach(b => {
-    b.onclick = () => { state.series = b.dataset.k; drawStandings(); };
-  });
-
+function renderStandings() {
   const rows = (DATA.standings[state.series] || []).slice(0, 120);
   $("standings").innerHTML =
     `<thead><tr><th class="num">#</th><th>Athlete</th><th class="num">Best time</th>
@@ -689,16 +714,20 @@ function drawStandings() {
       <td class="num">${r.races}</td><td>${r.when}</td></tr>`).join("") + "</tbody>";
 }
 
-/* ---------- courses & exclusions ---------- */
+/* ---------- footer sections ---------- */
 $("courses").innerHTML = DATA.courses.map(c => `
-  <p class="hint" style="margin:0 0 8px">
-    <b>${esc(c.name)}</b> — ${c.legs.map(l => `${esc(l.name)} ${l.km} km`).join(" + ")}
-    ${c.routes.length
-      ? "· routes: " + c.routes.map(r => `${esc(r.name)} (${r.km} km)`).join(", ")
-      : ""}
-  </p>`).join("") +
+  <p class="hint" style="margin:0 0 8px"><b>${esc(c.name)}</b> —
+    ${c.legs.map(l => `${esc(l.name)} ${l.km} km`).join(" + ")}
+    ${c.routes.length ? "· routes: " + c.routes.map(r => `${esc(r.name)} (${r.km} km)`).join(", ") : ""}</p>`).join("") +
   `<p class="hint">Distances are configured, not taken from each event page: the pages
-   disagree with themselves. Speed always uses the configured course.</p>`;
+   disagree with themselves. Results implying an impossible speed are dropped — hand
+   timing misfires both ways.</p>`;
+
+$("hidden-note").innerHTML = DATA.hidden.length
+  ? `<div class="note">Hidden for now: ${DATA.hidden.map(h => esc(h.label)).join(", ")}.
+     Those events are still stored — re-enable with
+     <code>ctc courses -- --enable "time_trial:Long (13.8 km)"</code>.</div>`
+  : "";
 
 $("exc-count").textContent = DATA.excluded.length;
 $("excluded").innerHTML =
@@ -707,9 +736,8 @@ $("excluded").innerHTML =
     <td>${esc(e.reason)}</td></tr>`).join("") + "</tbody>";
 
 /* ---------- go ---------- */
-renderList();
-drawStandings();
-if (DATA.athletes.length) showAthlete(DATA.athletes[0]);
+renderTabs();
+renderSeries();
 </script>
 </body>
 </html>

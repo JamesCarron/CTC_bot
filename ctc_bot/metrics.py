@@ -15,6 +15,11 @@ Four decisions from reviewing the club's real history shape this module:
   line through noise; ``identity.MIN_RACES_FOR_TREND`` gates it.
 * **Placeholder entries still count towards the field**, because they really did
   race, but never become an athlete.
+* **Implausible results are dropped entirely.** Club timing is done by hand and
+  misfires both ways - a start and stop pressed together produced a 7-second
+  "time trial" at 7,097 km/h, and a timer left running produced a 24-hour
+  aquathon. Such a row is excluded from the athlete's history *and* from the
+  field mean, since one 7,097 km/h entry would wreck every z-score in that race.
 """
 
 from __future__ import annotations
@@ -168,13 +173,35 @@ class Athlete:
         return slope * 365.25, r2
 
 
-def _event_finishers(stored) -> list[dict]:
-    """Rows with a real time, ranked - placeholders included.
+def _event_finishers(stored, courses=None) -> list[dict]:
+    """Plausible rows with a real time, ranked - placeholders included.
 
     Placeholders raced, so they belong in the field a z-score is measured
-    against, even though they never become an athlete.
+    against, even though they never become an athlete. Implausibly fast or slow
+    rows do not: they are timing errors, and leaving one in would distort the
+    field mean for everyone else in that race.
+
+    Positions are recomputed after filtering, so a dropped row does not leave a
+    gap in the finishing order.
     """
-    return rc.ranked(stored.event.results)
+    distance = config.event_distance_km(
+        stored.race_type, stored.listing.get("listed_distance_km"), courses
+    )
+    plausible = [
+        row
+        for row in stored.event.results
+        if _row_seconds(row) is not None
+        and config.is_plausible(stored.race_type, _row_seconds(row), distance, courses)
+    ]
+    return rc.ranked(plausible)
+
+
+def _row_seconds(row: dict) -> float | None:
+    try:
+        seconds = float(row.get("TmResultSec"))
+    except (TypeError, ValueError):
+        return None
+    return seconds if seconds > 0 else None
 
 
 def build(stored_events, registry: idn.Registry) -> dict[str, Athlete]:
@@ -190,7 +217,7 @@ def build(stored_events, registry: idn.Registry) -> dict[str, Athlete]:
         if when is None:
             continue
 
-        finishers = _event_finishers(stored)
+        finishers = _event_finishers(stored, courses)
         field_size = len(finishers)
         times = [float(row["TmResultSec"]) for row in finishers]
 

@@ -68,6 +68,13 @@ MIN_FIELD_FOR_STATS = 5
 # "time trial".
 MIN_TT_DISTANCE_KM = 10.0
 
+# Above this share of implausible results, the event itself is wrong - a
+# mis-set course or a timing rig that never worked - rather than a few people
+# being mis-clicked. Three real events cross this line: an aquathon where 62%
+# of timers were left running, a time trial where 67% of results imply 52+ km/h,
+# and a two-person aquathon recorded as 40 seconds.
+MAX_IMPLAUSIBLE_SHARE = 0.4
+
 # A default name RaceClocker gives an event nobody renamed. Not excluded on its
 # own - plenty are real races - but worth surfacing.
 _UNNAMED_RE = re.compile(r"^\s*new race\b", re.I)
@@ -126,6 +133,10 @@ def assess_event(stored) -> Verdict:
     if finisher_count(stored) == 0:
         return Verdict(False, "no recorded times")
 
+    share = implausible_share(stored)
+    if share > MAX_IMPLAUSIBLE_SHARE:
+        return Verdict(False, f"{share:.0%} of results implausible")
+
     # The club's cycling time trial runs 13-14 km. A much shorter "time trial"
     # belongs to the Wednesday running series, which does not always say so in
     # its title (e.g. "29th Jun 2022 - 5km Time Trial").
@@ -134,6 +145,31 @@ def assess_event(stored) -> Verdict:
         return Verdict(False, "not the club time trial course")
 
     return verdict
+
+
+def implausible_share(stored) -> float:
+    """Fraction of timed results that cannot be real.
+
+    Individual mis-clicks are dropped per result in ``metrics``; this catches
+    the case where the whole event is wrong.
+    """
+    from . import config
+
+    distance = config.event_distance_km(
+        stored.race_type, stored.listing.get("listed_distance_km")
+    )
+    timed = bad = 0
+    for row in stored.event.results:
+        try:
+            seconds = float(row.get("TmResultSec"))
+        except (TypeError, ValueError):
+            continue
+        if seconds <= 0:
+            continue
+        timed += 1
+        if not config.is_plausible(stored.race_type, seconds, distance):
+            bad += 1
+    return bad / timed if timed else 0.0
 
 
 def has_reliable_field_stats(stored) -> bool:

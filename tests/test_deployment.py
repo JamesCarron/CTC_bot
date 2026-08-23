@@ -102,39 +102,101 @@ def test_host_and_port_come_from_the_environment(monkeypatch):
     assert reloaded.DEFAULT_PORT == 9999
 
 
-# ---- the weekly refresh --------------------------------------------------
+# ---- race-night polling and the morning sweep ----------------------------
+
+
+@pytest.mark.parametrize("when, expected", [
+    (datetime(2026, 8, 18, 18, 59), False),  # Tuesday, before the window
+    (datetime(2026, 8, 18, 19, 0), True),    # Tuesday, window opens
+    (datetime(2026, 8, 18, 20, 30), True),   # Tuesday, mid race
+    (datetime(2026, 8, 18, 22, 59), True),   # Tuesday, window closing
+    (datetime(2026, 8, 18, 23, 0), False),   # Tuesday, window shut
+    (datetime(2026, 8, 20, 20, 0), True),    # Thursday aquathon
+    (datetime(2026, 8, 19, 20, 0), False),   # Wednesday is not a race night
+    (datetime(2026, 8, 22, 20, 0), False),   # Saturday
+])
+def test_race_night_window(when, expected):
+    assert sched.is_race_night(when) is expected
 
 
 @pytest.mark.parametrize("now, expected", [
-    # Tuesday evening, after the time trial -> Wednesday morning
-    (datetime(2026, 8, 18, 19, 30), datetime(2026, 8, 19, 7, 0)),
-    # Wednesday before the slot -> same morning
-    (datetime(2026, 8, 19, 6, 59), datetime(2026, 8, 19, 7, 0)),
-    # Exactly on the slot -> the next one, never the same one twice
-    (datetime(2026, 8, 19, 7, 0), datetime(2026, 8, 21, 7, 0)),
-    # Thursday evening, after the aquathon -> Friday morning
-    (datetime(2026, 8, 20, 20, 0), datetime(2026, 8, 21, 7, 0)),
-    # Weekend -> the following Wednesday
-    (datetime(2026, 8, 22, 12, 0), datetime(2026, 8, 26, 7, 0)),
+    # Before Tuesday's window -> the window, not the morning after
+    (datetime(2026, 8, 18, 18, 0), datetime(2026, 8, 18, 19, 0)),
+    # Inside it -> the sweep, since polling handles the rest of the evening
+    (datetime(2026, 8, 18, 20, 0), datetime(2026, 8, 19, 7, 0)),
+    # After Wednesday's sweep -> Thursday's window
+    (datetime(2026, 8, 19, 8, 0), datetime(2026, 8, 20, 19, 0)),
+    # Weekend -> the following Tuesday evening
+    (datetime(2026, 8, 22, 12, 0), datetime(2026, 8, 25, 19, 0)),
 ])
-def test_next_run(now, expected):
-    assert sched.next_run(now) == expected
+def test_next_wakeup(now, expected):
+    assert sched.next_wakeup(now) == expected
 
 
-def test_slots_follow_the_race_days():
-    """Wednesday and Friday, the mornings after Tuesday TT and Thursday aquathon."""
-    assert sched.DEFAULT_DAYS == (sched.WEDNESDAY, sched.FRIDAY)
-    assert datetime(2026, 8, 19).weekday() == sched.WEDNESDAY
-    assert datetime(2026, 8, 21).weekday() == sched.FRIDAY
+def test_race_days_and_sweep_days_line_up():
+    """Sweep the morning after each race night, not on arbitrary days."""
+    assert sched.RACE_DAYS == (sched.TUESDAY, sched.THURSDAY)
+    assert sched.SWEEP_DAYS == (sched.WEDNESDAY, sched.FRIDAY)
+    assert datetime(2026, 8, 18).weekday() == sched.TUESDAY
+    assert datetime(2026, 8, 20).weekday() == sched.THURSDAY
 
 
-def test_a_failed_refresh_does_not_stop_the_schedule(monkeypatch):
-    """One network blip must not silently end every future refresh."""
+def test_polling_stops_once_results_are_in(monkeypatch):
+    """The whole point: stop hammering the console once tonight is settled."""
     scheduler = sched.Scheduler()
-    monkeypatch.setattr(sched, "refresh", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
-    scheduler._run_once()
-    assert scheduler.last_result == "failed - see log"
+    calls = {"n": 0}
+
+    def fake_poll(today=None):
+        calls["n"] += 1
+        return True, "1 event(s) with 15 result(s)"
+
+    monkeypatch.setattr(sched, "poll_tonight", fake_poll)
+    race_night = datetime(2026, 8, 18, 20, 0)
+
+    scheduler._poll(race_night)
+    assert scheduler.settled_on == race_night.date()
+    # The loop's guard is settled_on, so a second evening pass is skipped.
+    assert sched.is_race_night(race_night)
+    assert scheduler.settled_on == race_night.date()
+    assert calls["n"] == 1
+
+
+def test_polling_continues_while_no_results_yet(monkeypatch):
+    """An event created before the race must not end the night's checking."""
+    scheduler = sched.Scheduler()
+    monkeypatch.setattr(
+        sched, "poll_tonight",
+        lambda today=None: (False, "1 event(s) listed, none timed yet"),
+    )
+    scheduler._poll(datetime(2026, 8, 18, 19, 30))
+    assert scheduler.settled_on is None
+
+
+def test_a_failed_poll_does_not_end_the_night(monkeypatch):
+    """One network blip must not stop the remaining checks."""
+    scheduler = sched.Scheduler()
+    monkeypatch.setattr(
+        sched, "poll_tonight",
+        lambda today=None: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    scheduler._poll(datetime(2026, 8, 18, 20, 0))
+    assert scheduler.last_result == "poll failed - see log"
+    assert scheduler.settled_on is None  # so it tries again
+
+
+def test_a_failed_sweep_does_not_stop_the_schedule(monkeypatch):
+    scheduler = sched.Scheduler()
+    monkeypatch.setattr(
+        sched.Scheduler, "sweep_once",
+        staticmethod(lambda: (_ for _ in ()).throw(RuntimeError("boom"))),
+    )
+    scheduler._sweep()
+    assert scheduler.last_result == "sweep failed - see log"
     assert scheduler.last_run is not None
+
+
+def test_poll_interval_is_five_minutes_by_default():
+    assert sched.POLL_MINUTES == 5
 
 
 # ---- the dashboard cache -------------------------------------------------

@@ -4,6 +4,23 @@ Written at a quota checkpoint on 2026-08-24. **All five items were implemented o
 2026-08-25** — this file now records what was done and what is still outstanding.
 
 Live at `https://tri.jamescarron.cloud` (password `CTC2026`), 348 tests passing.
+Deployed 2026-08-25 as `6403c6f`, infra `f18e31e`.
+
+**Deploy, as actually done** (CI is still not running, so the image is built on
+the box):
+
+```bash
+ssh -i ~/.ssh/id_ed25519_hetzner admin@100.68.148.7   # Tailscale IP; :22 is closed on the public IP
+cd /opt/apps-src/CTC_bot && git pull --ff-only
+docker build -t ghcr.io/jamescarron/tri:<full-sha> .
+# then locally: bump the tag in infra/apps/tri/compose.yml, commit, push
+git -C /opt/infra pull --ff-only
+cd /opt/infra/apps/tri && docker compose -p tri --env-file /opt/infra/config.env up -d --no-build
+```
+
+`--env-file /opt/infra/config.env` supplies `DOMAIN` for the Traefik host rule;
+without it the router rule comes out as ``Host(`tri.`)`` and the site stops
+resolving. `-p tri` matches the running project name.
 
 ---
 
@@ -122,8 +139,6 @@ regulars, which is the honest answer and matches the draft warning on that tab.
 
 ## Still outstanding
 
-- **This is not deployed.** Build on the box, bump the SHA in
-  `apps/tri/compose.yml`, `docker compose up -d`.
 - **CI still not running.** Needs `infra` → Settings → Actions → General →
   Access → *accessible from repositories owned by the user*, plus an
   `INFRA_REPO_TOKEN` secret on `CTC_bot`.

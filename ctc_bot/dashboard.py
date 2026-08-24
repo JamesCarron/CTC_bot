@@ -54,6 +54,14 @@ def _format_time(seconds: float) -> str:
     return idn.format_time(seconds)
 
 
+STANDINGS_SHOWN = 20
+"""How many rows the club standings table carries.
+
+Everyone still appears in the athlete list and has their own history; this is
+the leaderboard, and a leaderboard is a top-of-the-table thing.
+"""
+
+
 def build_payload(stored_events, registry: idn.Registry) -> dict:
     """Everything the page needs, in one JSON-serialisable structure."""
     included, excluded = curation.partition(stored_events)
@@ -205,7 +213,11 @@ def build_payload(stored_events, registry: idn.Registry) -> dict:
 
     standings_payload = {}
     for key in series_keys:
-        table = metrics.standings(athletes, key)
+        # Only what the page shows. A club standings table is a leaderboard, and
+        # a leaderboard 247 names long is a directory - nobody reads past the
+        # top of it, and shipping the tail costs every visitor page weight for
+        # rows that never render.
+        table = metrics.standings(athletes, key)[:STANDINGS_SHOWN]
         standings_payload[key] = [
             {
                 "id": athlete.athlete_id,
@@ -587,7 +599,7 @@ _TEMPLATE = r"""<!doctype html>
 
   <section>
     <h2>Club standings</h2>
-    <p class="hint">Ranked by each athlete's fastest time on this course.</p>
+    <p class="hint">The twenty fastest, by each athlete's best time on this course.</p>
     <div class="scroll"><table id="standings"></table></div>
   </section>
 
@@ -1290,7 +1302,7 @@ function wireClaim(a) {
 
 /* ---------- standings ---------- */
 function renderStandings() {
-  const rows = (DATA.standings[state.series] || []).slice(0, 120);
+  const rows = (DATA.standings[state.series] || []).slice(0, 20);
   $("standings").innerHTML =
     `<thead><tr><th class="num">#</th><th>Athlete</th><th class="num">Best time</th>
       <th class="num">km/h</th><th class="num">Races</th><th>When</th></tr></thead><tbody>` +

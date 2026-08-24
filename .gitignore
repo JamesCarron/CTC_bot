@@ -44,3 +44,7 @@ data/listing_cache.json
 # pixi environments
 .pixi/*
 !.pixi/config.toml
+
+# Copies of the live registry pulled down for local work. Personal data, and
+# the server's copy is the one that counts.
+working/identity-*.json

@@ -191,6 +191,22 @@ def test_enabling_a_route_brings_its_history_back(events, tmp_path):
     assert "time_trial|Long (13.8 km)" in [s["key"] for s in payload["series"]]
 
 
+def test_standings_carry_only_what_the_page_shows(events):
+    """A leaderboard is a top-of-the-table thing, and the tail is page weight
+    for rows that never render."""
+    many = events + [
+        make_event(f"big{i}", [(f"Rider {n}", 1500.0 + n * 5) for n in range(30)],
+                   date_text=f"Tuesday {i + 1} Sep '24, 19:00")
+        for i in range(2)
+    ]
+    payload = dashboard.build_payload(many, idn.Registry())
+    for series, rows in payload["standings"].items():
+        assert len(rows) <= dashboard.STANDINGS_SHOWN, series
+    assert any(len(rows) == dashboard.STANDINGS_SHOWN for rows in payload["standings"].values())
+    # Everyone still has their own history and appears in the athlete list.
+    assert len(payload["athletes"]) > dashboard.STANDINGS_SHOWN
+
+
 def test_standings_are_ranked_by_speed(payload):
     series = next(iter(payload["standings"]))
     names = [row["name"] for row in payload["standings"][series]]

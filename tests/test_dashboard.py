@@ -402,13 +402,21 @@ def test_honour_system_is_stated(page):
     assert "only claim races you actually rode" in page
 
 
-def test_aquathon_carries_a_draft_warning(page):
-    """The aquathon side has had none of the curation the time trial has."""
-    assert "Rough draft." in page
-    assert "consolidate athletes" in page
+def test_aquathon_says_it_has_fewer_regulars(page):
+    """Not a data-quality warning any more.
+
+    Each leg is bounded separately now and the name variants have been worked
+    through, so both of the original reasons are gone. What remains is who
+    turns up: 197 people have raced one aquathon and never come back, which
+    makes an evening there genuinely harder to compare.
+    """
+    assert "Fewer regulars." in page
+    assert "race it once" in page
     assert 's.key === "aquathon"' in page   # and only there
 
 
-def test_the_warning_reads_as_a_warning(page):
-    assert ".warning {" in page
-    assert "border:1px solid var(--bad)" in page
+def test_the_old_draft_warning_is_gone(page):
+    """It claimed two things that are no longer true, and claiming them
+    understated the data rather than being cautious about it."""
+    assert "Rough draft." not in page
+    assert "consolidate athletes" not in page

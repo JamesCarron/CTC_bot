@@ -492,13 +492,6 @@ _TEMPLATE = r"""<!doctype html>
     color:var(--ink); border-left:3px solid var(--s1); padding:7px 11px;
     background:var(--plane); border-radius:0 7px 7px 0;
   }
-  /* Reserved for warnings about the data itself, not about one athlete. */
-  .warning {
-    border:1px solid var(--bad); border-left-width:4px; border-radius:0 9px 9px 0;
-    background:color-mix(in srgb, var(--bad) 8%, transparent);
-    padding:11px 14px; margin:0 0 18px; font-size:13.5px; color:var(--ink);
-  }
-  .warning strong { color:var(--bad); }
   .empty {
     border:1px dashed var(--axis); border-radius:10px; padding:26px 20px;
     text-align:center; color:var(--ink-2); font-size:14px;
@@ -728,16 +721,16 @@ function renderSeries() {
 }
 
 function renderNote(s) {
-  // The aquathon side has had none of the curation the time trial has: the
-  // implausible-result filter was tuned against bike times, and nobody has
-  // worked through the name variants. Saying so is better than letting the
-  // numbers imply a confidence they have not earned.
+  // This used to warn that the aquathon had had no curation at all. Both
+  // reasons have since gone: each leg is bounded separately now, and the name
+  // variants have been worked through. What is left is not a data-quality
+  // problem but a fact about who turns up - 197 people have raced one aquathon
+  // and never come back - so it reads as a caveat rather than a warning.
   $("series-note").innerHTML = s.key === "aquathon"
-    ? `<div class="warning" role="note">
-         <strong>Rough draft.</strong> The aquathon results have had no
-         tidying up: false and mistimed results have not been removed, and no
-         attempt has been made to consolidate athletes who appear under several
-         names. Treat everything on this tab as indicative only.
+    ? `<div class="note" role="note">
+         <b>Fewer regulars.</b> Most people who race the aquathon race it once,
+         so there is no settled group to measure an evening against. Times here
+         are harder to compare from night to night than on the time trial.
        </div>`
     : "";
 }

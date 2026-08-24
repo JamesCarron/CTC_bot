@@ -137,16 +137,78 @@ regulars, which is the honest answer and matches the draft warning on that tab.
 
 ---
 
+---
+
+## Second batch — 2026-08-25, after an interview
+
+### Sweep cached transient failures as "never published" — FIXED
+
+`sweep()` did `cache.record(listing, None)` on *any* exception. A timeout, a
+500 or a mid-sweep sign-out was recorded identically to "this event has no
+public page", and `ListingCache.lookup` then skipped that listing for
+`UNPUBLISHED_RETRY_DAYS = 30`. One bad sweep could hide a genuinely new race
+for a month.
+
+Now: `LookupError` (the definitive "no public code on the page") still caches;
+a `LoginError` stops the sweep early, since every remaining request would fail
+the same way; anything else counts as failed and caches nothing, so the next
+sweep retries it. `tests/test_scheduler.py` covers all three, and two of them
+fail against the old code.
+
+**The documented session-expiry worry was overstated.** `poll_tonight` and
+`sweep` each call `session.login()` fresh (`scheduler.py:113`, `:151`), so a
+container running for weeks never reuses a stale session between runs. Only
+mid-run expiry was ever a risk, and that is what the early stop handles.
+
+### Merge suggestions — BUILT (`ctc_bot/merge.py`)
+
+Proposes spellings that look like one person; a human confirms. Nothing merges
+itself. Over the club's real data: **129 suggestions collapsing 184 spellings**,
+76 on strong evidence.
+
+Rules, each earned from a real failure:
+
+- **First name must match exactly.** Matching loosely on both names at once is
+  how *Colin Feeley* reaches *Colm Feely*.
+- **Two spellings in the same race are never proposed.** Nobody races twice, so
+  co-occurrence is proof of two people. Rejects 12 plausible-looking pairs.
+- **Full names are grouped first, abbreviations attached second, and only when
+  exactly one group could take them.** The first version chained *John O* to
+  O'Connell, O'Driscoll and O'Shaughnessy at once and reported three men as one
+  person with 103 races. It also absorbed *Peter Martin* into *Peter Meaney* and
+  *Mark MacManus* into *Mark McEntee*.
+- **Apostrophes and accents are folded for comparison only** — 21 names carry a
+  curly apostrophe and 12 of those also exist with a straight one; three arrive
+  with the fada as a combining accent. The folding is *not* pushed into
+  `identity.normalise`, because that would silently re-group athletes without
+  anybody confirming anything.
+
+Endpoints: `GET /api/merge-suggestions`, `POST /api/merge`,
+`POST /api/dismiss-merge` (both writes are in `_WRITE_PATHS`, so `CTC_READ_ONLY`
+covers them). Dismissals persist in `identity.json`. Applying uses the ordinary
+claim machinery, so a merge is a batch of normal claims and is undone the same
+way — one **Not mine** at a time.
+
+**Note before this goes live:** anyone with the site password can merge
+identities in bulk. That is consistent with the honour system the intro already
+describes, but it is a bigger lever than a single claim.
+
+### Decisions taken
+
+- **CI: not doing it.** Deploys stay manual — build on the box, bump the SHA,
+  `docker compose up -d`. Procedure recorded above.
+- **Backups: settled.** Hetzner backups are enabled and considered sufficient.
+  Worth remembering that these are whole-VM snapshots, so recovering one file
+  means rolling the box back or mounting the snapshot; there is no per-file
+  history.
+
+---
+
 ## Still outstanding
 
-- **CI still not running.** Needs `infra` → Settings → Actions → General →
-  Access → *accessible from repositories owned by the user*, plus an
-  `INFRA_REPO_TOKEN` secret on `CTC_bot`.
 - **Race-night polling is untested against a real race.** First live run is
   Tuesday 19:00. Worth watching `docker logs tri-app-1`.
-- **RaceClocker session expiry** in a long-lived container. `session.py` detects
-  being bounced to the login form but does not re-login.
-- **Archive the Windows `identity.json` / `overrides.json`.** Backup is Hetzner
-  snapshots only, 24 h granularity, no per-file history.
-- **Aquathon identities are still unconsolidated**, which is what keeps the
-  conditions note off that tab and the draft warning on it.
+- **Aquathon identities are still unconsolidated** — the tooling now exists, but
+  nobody has worked through the 129 suggestions. Doing so should retire the
+  draft warning and give that tab enough regulars for a conditions note.
+- **This second batch is not deployed.**

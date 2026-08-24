@@ -196,11 +196,17 @@ class Registry:
         self,
         athletes: dict[str, Athlete] | None = None,
         opted_out: dict[str, dict] | None = None,
+        dismissed_merges: list[str] | None = None,
     ):
         self.athletes: dict[str, Athlete] = athletes or {}
         # athlete id -> {"name": ..., "at": ...}. The name is kept so an admin
         # can find the entry to reverse it; nothing about them is shown.
         self.opted_out: dict[str, dict] = opted_out or {}
+        # Merge suggestions somebody looked at and rejected. Kept so a wrong
+        # guess is refused once rather than every time the page is rebuilt -
+        # a suggestion list that keeps re-offering what you just turned down
+        # is one nobody reads twice.
+        self.dismissed_merges: set[str] = set(dismissed_merges or [])
 
     # ---- persistence -------------------------------------------------
 
@@ -218,7 +224,11 @@ class Registry:
             )
             for athlete_id, spec in payload.get("athletes", {}).items()
         }
-        return cls(athletes, payload.get("opted_out", {}))
+        return cls(
+            athletes,
+            payload.get("opted_out", {}),
+            payload.get("dismissed_merges", []),
+        )
 
     def save(self, path: Path | None = None) -> Path:
         identity_path = path or IDENTITY_PATH
@@ -228,6 +238,7 @@ class Registry:
                 {
                     "version": 1,
                     "opted_out": self.opted_out,
+                    "dismissed_merges": sorted(self.dismissed_merges),
                     "athletes": {
                         athlete_id: {
                             "display_name": athlete.display_name,

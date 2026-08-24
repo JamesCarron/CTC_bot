@@ -91,6 +91,9 @@ def test_read_only_covers_every_routed_write(monkeypatch):
         "/api/claim", "/api/adopt", "/api/disown",
         "/api/edit-time", "/api/reset-time", "/api/add-result", "/api/remove-result",
         "/api/opt-out",
+        # Merging duplicate spellings rewrites claims in bulk, so it belongs
+        # here as much as any single claim does.
+        "/api/merge", "/api/dismiss-merge",
     }
 
 

@@ -31,6 +31,7 @@ from . import auth
 from . import dashboard
 from . import identity as idn
 from . import login_page
+from . import merge as mrg
 from . import scheduler as sched
 from . import overrides as ovr
 from . import store
@@ -49,6 +50,7 @@ _WRITE_PATHS = (
     "/api/claim", "/api/adopt", "/api/disown",
     "/api/edit-time", "/api/reset-time", "/api/add-result", "/api/remove-result",
     "/api/opt-out",
+    "/api/merge", "/api/dismiss-merge",
 )
 
 
@@ -151,6 +153,8 @@ class _Handler(BaseHTTPRequestHandler):
         elif parsed.path == "/api/rows":
             query = (parse_qs(parsed.query).get("q") or [""])[0]
             self._json(200, {"ok": True, "rows": search_rows(query)})
+        elif parsed.path == "/api/merge-suggestions":
+            self._json(200, {"ok": True, "suggestions": merge_suggestions()})
         else:
             self._json(404, {"ok": False, "message": "Not found"})
 
@@ -282,6 +286,12 @@ class _Handler(BaseHTTPRequestHandler):
                 message = remove_result(str(request.get("additionId") or ""))
             elif self.path == "/api/opt-out":
                 message = opt_out(athlete_id, request.get("name") or "")
+            elif self.path == "/api/merge":
+                message = apply_merge(
+                    str(request.get("key") or ""), str(request.get("displayName") or "")
+                )
+            elif self.path == "/api/dismiss-merge":
+                message = dismiss_merge(str(request.get("key") or ""))
             else:
                 if not (athlete_id and event and race_id):
                     self._json(
@@ -325,6 +335,67 @@ def _candidate(stored, row: dict) -> idn.Candidate:
         seconds=None,
         position=None,
     )
+
+
+# ---- merging duplicate spellings ----------------------------------------
+
+
+def merge_suggestions(limit: int = 80) -> list[dict]:
+    """Spellings that look like one person, for an admin to confirm.
+
+    Read-only. Nothing here changes a single claim - see :mod:`ctc_bot.merge`
+    for why the machine only ever proposes.
+    """
+    registry = idn.Registry.load()
+    found = mrg.suggest(_curated_events(), registry)
+    return [
+        {
+            "key": s.key,
+            "name": s.display_name,
+            "races": s.races,
+            "confidence": s.confidence,
+            "reasons": s.reasons,
+            "raceTypes": s.race_types,
+            "joinsClaimed": s.joins_claimed,
+            "mergesInto": (
+                registry.athletes[s.target_id].display_name
+                if s.target_id and s.target_id in registry.athletes
+                else None
+            ),
+            "variants": [
+                {"name": v.name, "races": v.races, "owner": v.owner_name} for v in s.variants
+            ],
+        }
+        for s in found[:limit]
+    ]
+
+
+def apply_merge(key: str, display_name: str = "") -> str:
+    """Claim every spelling in one suggestion under a single athlete."""
+    if not key:
+        raise ValueError("Which suggestion?")
+    registry = idn.Registry.load()
+    events = _curated_events()
+    suggestion = mrg.find(key, events, registry)
+    if suggestion is None:
+        # Either somebody already merged it, or the underlying rows moved. Both
+        # mean the page is out of date rather than that anything went wrong.
+        raise LookupError("That suggestion is no longer current. Refresh and look again.")
+
+    moved = mrg.apply(suggestion, events, registry, display_name=display_name)
+    registry.save()
+    name = (display_name or suggestion.display_name).strip()
+    return f"Joined {len(suggestion.variants)} spellings into {name!r} - {moved} results."
+
+
+def dismiss_merge(key: str) -> str:
+    """Record that somebody looked at a suggestion and said no."""
+    if not key:
+        raise ValueError("Which suggestion?")
+    registry = idn.Registry.load()
+    registry.dismissed_merges.add(key)
+    registry.save()
+    return "Suggestion dismissed; it will not be offered again."
 
 
 def search_rows(query: str, limit: int = 60) -> list[dict]:

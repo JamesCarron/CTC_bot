@@ -145,9 +145,10 @@ def sweep() -> str:
     listing to the code it resolved to last time, and only genuinely unknown
     listings are fetched.
     """
-    from . import dashboard, discovery, session, store
+    from . import dashboard, discovery, store
+    from . import session as sess
 
-    http = session.login()
+    http = sess.login()
     listings = discovery.fetch_listing(session=http)
     already = {stored.code for stored in store.load_all()}
 
@@ -170,8 +171,25 @@ def sweep() -> str:
         try:
             resolved = discovery.resolve(listing, session=http)
             fetched += 1
-        except Exception:
+        except LookupError:
+            # Definitive: the result page carries no public code, so this event
+            # was never published. Worth remembering - that is what stops the
+            # sweep re-fetching the same dead listing every morning.
             cache.record(listing, None)
+            failed += 1
+            continue
+        except sess.LoginError:
+            # The session went stale mid-sweep. Every remaining listing would
+            # fail the same way, so stop rather than walk the rest of the list
+            # against a logged-out session. Nothing is cached: the next sweep
+            # logs in fresh and picks these up.
+            print(f"[refresh] sweep stopped early: signed out after {fetched} fetch(es)")
+            break
+        except Exception:
+            # Transient - a timeout, a 500, a blip. Deliberately NOT cached.
+            # Recording None here would be indistinguishable from "never
+            # published", and would then hide a genuinely new race from every
+            # sweep for UNPUBLISHED_RETRY_DAYS.
             failed += 1
             continue
 

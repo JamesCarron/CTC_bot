@@ -511,6 +511,15 @@ _TEMPLATE = r"""<!doctype html>
   tr.manual td:first-child { box-shadow:inset 3px 0 0 var(--s2); }
   tr.edited td:first-child { box-shadow:inset 3px 0 0 var(--s2); }
   .pill.mark { border-color:var(--s2); color:var(--s2); margin-left:6px; }
+
+  /* merge suggestions */
+  .merge { border:1px solid var(--border); border-radius:8px; padding:10px 12px;
+           margin:10px 0; display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; }
+  .merge .who { font-weight:600; flex:1 1 200px; }
+  .merge .variants { flex:1 1 100%; color:var(--ink-2); font-size:13px; line-height:1.6; }
+  .merge .variants code { background:var(--plane); padding:1px 6px; border-radius:4px; }
+  .merge .acts { display:flex; gap:6px; margin-left:auto; }
+  .merge.weak { border-style:dashed; }
   .was { font-size:11px; color:var(--muted); text-decoration:line-through; }
 </style>
 </head>
@@ -588,6 +597,13 @@ _TEMPLATE = r"""<!doctype html>
     <h2>Club standings</h2>
     <p class="hint">Ranked by each athlete's fastest time on this course.</p>
     <div class="scroll"><table id="standings"></table></div>
+  </section>
+
+  <section id="merge-section" hidden>
+    <h2>Names that look like one person</h2>
+    <p class="hint" id="merge-intro"></p>
+    <div id="merge-list"></div>
+    <div class="msg" id="merge-msg"></div>
   </section>
 
   <section>
@@ -1316,6 +1332,56 @@ $("hidden-note").innerHTML = DATA.hidden.length
      <code>ctc courses -- --enable "time_trial:Long (13.8 km)"</code>.</div>`
   : "";
 
+/* ---------- names that look like one person ----------
+   Fetched rather than embedded: it is an admin chore, it changes every time
+   somebody claims anything, and baking a stale list into the page would have
+   people confirming merges that already happened. */
+async function loadMerges() {
+  let out;
+  try {
+    const res = await fetch("/api/merge-suggestions");
+    out = await res.json();
+  } catch (e) {
+    return;   // opened as a file, with no server behind it
+  }
+  const rows = (out && out.suggestions) || [];
+  if (!rows.length) return;
+
+  $("merge-section").hidden = false;
+  const strong = rows.filter(r => r.confidence === "strong").length;
+  $("merge-intro").innerHTML =
+    `Results are grouped by the name on the entry sheet, so one person split across
+     several spellings looks like several people. These ${rows.length} look like they
+     are one — ${strong} on strong evidence, the rest on a first name alone.
+     <b>Nothing is joined until you say so</b>, and anything joined here can be
+     undone one result at a time with <b>Not mine</b>.`;
+
+  $("merge-list").innerHTML = rows.map(r => {
+    const variants = r.variants.map(v =>
+      `<code>${esc(v.name)}</code> ${v.races}${v.owner ? ` · already ${esc(v.owner)}` : ""}`
+    ).join(" &nbsp;+&nbsp; ");
+    return `<div class="merge ${r.confidence}" data-k="${esc(r.key)}">
+      <div class="who">${esc(r.name)}
+        <span class="pill">${r.races} results</span>
+        ${r.confidence === "weak" ? '<span class="pill unverified">first name only</span>' : ""}
+        ${r.joinsClaimed ? '<span class="pill unverified">joins two confirmed people</span>' : ""}
+      </div>
+      <div class="acts">
+        <button class="primary js-merge" data-k="${esc(r.key)}">Same person</button>
+        <button class="link-btn js-dismiss" data-k="${esc(r.key)}">Not the same</button>
+      </div>
+      <div class="variants">${variants}<br><span style="opacity:.7">${esc(r.reasons.join(", "))}</span></div>
+    </div>`;
+  }).join("");
+
+  $("merge-list").querySelectorAll("button.js-merge").forEach(b => {
+    b.onclick = () => postJson("/api/merge", { key: b.dataset.k }, b, $("merge-msg"), { reload: true });
+  });
+  $("merge-list").querySelectorAll("button.js-dismiss").forEach(b => {
+    b.onclick = () => postJson("/api/dismiss-merge", { key: b.dataset.k }, b, $("merge-msg"), { reload: true });
+  });
+}
+
 /* ---------- redraw on resize ---------- */
 // The chart is sized to its container at render time, so a rotation or a
 // window resize has to redraw it or the viewBox keeps the old width.
@@ -1332,6 +1398,7 @@ addEventListener("resize", () => {
 restoreState();
 renderTabs();
 renderSeries();
+loadMerges();
 </script>
 </body>
 </html>

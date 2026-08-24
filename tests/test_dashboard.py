@@ -380,6 +380,38 @@ def test_a_single_season_chart_is_labelled_by_month(page):
     assert '"Jan","Feb","Mar"' in page
 
 
+def test_the_chart_axis_breaks_between_seasons(page):
+    """Racing runs May to September and stops for the winter.
+
+    On a plain timeline an all-time chart spends two thirds of its width
+    drawing nothing, then joins August to the following May with a line
+    implying a change in form over months when nobody raced. One column per
+    season, one path per season, and a break mark in between.
+    """
+    # A path per season, never one path over every point.
+    assert "const path = seasons.map(yr => {" in page
+    assert 'const path = pts.map((p, i)' not in page
+    # Gridlines and baseline drawn per column, so nothing bridges the break.
+    assert "grid += seasons.map(yr =>" in page
+    assert "const baseline = seasons.map(yr =>" in page
+    assert "const breaks = seasons.slice(0, -1).map(yr =>" in page
+
+
+def test_every_season_column_covers_the_same_calendar_span(page):
+    """Otherwise June in one column would not line up with June in the next,
+    and two seasons could not be read against each other."""
+    assert "const dayOfYear = (iso) =>" in page
+    assert "const d0 = Math.min(...days), d1 = Math.max(...days);" in page
+
+
+def test_the_axis_unit_clears_the_top_tick(page):
+    """At the old top margin the caption and the highest tick value were drawn
+    at almost the same height and overprinted - "35" through "km/h"."""
+    assert "y=\"${m.t - 9}\"" in page
+    assert "{ t: 22, r: 10, b: 26, l: 34 }" in page   # narrow
+    assert "{ t: 26, r: 18, b: 30, l: 46 }" in page   # wide
+
+
 # ---- intro, honour note, and the aquathon warning ------------------------
 
 

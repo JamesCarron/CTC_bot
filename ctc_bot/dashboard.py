@@ -791,56 +791,103 @@ function lineChart(runs, key, width) {
   const narrow = W < 460;
   const H = narrow ? 210 : 240;
   // A narrow chart needs less room for axis labels, and cannot afford it either.
+  // The top margin carries the "km/h" caption above the highest gridline. At
+  // t:14 the caption and the top tick value were drawn at almost the same
+  // height and overprinted each other - "35" through "km/h" reads as "k35/h".
   const m = narrow
-    ? { t: 12, r: 10, b: 26, l: 34 }
-    : { t: 14, r: 18, b: 30, l: 46 };
+    ? { t: 22, r: 10, b: 26, l: 34 }
+    : { t: 26, r: 18, b: 30, l: 46 };
   const fs = narrow ? 10 : 11;
   const pts = runs.filter(r => r.speed !== null);
   if (!pts.length) return "";
 
-  const xs = pts.map(p => new Date(p.date).getTime());
   const ys = pts.map(p => p.speed);
-  const x0 = Math.min(...xs), x1 = Math.max(...xs);
   let y0 = Math.min(...ys), y1 = Math.max(...ys);
   const padY = Math.max((y1 - y0) * 0.15, 0.4);
   y0 -= padY; y1 += padY;
-
-  const sx = v => m.l + ((v - x0) / ((x1 - x0) || 1)) * (W - m.l - m.r);
   const sy = v => H - m.b - ((v - y0) / ((y1 - y0) || 1)) * (H - m.t - m.b);
+
+  /* A broken axis, one column per season.
+
+     Racing runs May to September and stops for the winter. On a plain
+     timeline an all-time chart therefore spends two thirds of its width
+     drawing nothing, and then joins August to the following May with a
+     straight line - a line implying a change in form across months when
+     nobody raced at all.
+
+     Each season gets its own column, and every column is laid out over the
+     same span of the calendar, so June sits in the same place in each one and
+     two seasons can be read against each other. The gap between columns is
+     where the winter went. */
+  const GAP = narrow ? 12 : 20;
+  const seasons = [...new Set(pts.map(p => p.season))].sort((a, b) => a - b);
+  const dayOfYear = (iso) => {
+    const d = new Date(iso);
+    return (d - new Date(d.getFullYear(), 0, 1)) / 86400000;
+  };
+  const days = pts.map(p => dayOfYear(p.date));
+  const d0 = Math.min(...days), d1 = Math.max(...days);
+  const colW = (W - m.l - m.r - GAP * (seasons.length - 1)) / seasons.length;
+  const colX = (yr) => m.l + seasons.indexOf(yr) * (colW + GAP);
+  // One race in a season, or every race on the same date: centre it rather
+  // than pinning it to the left edge of its column.
+  const sx = (p) => colX(p.season) +
+    (d1 === d0 ? colW / 2 : ((dayOfYear(p.date) - d0) / (d1 - d0)) * colW);
 
   const ticks = narrow ? 3 : 4;
   let grid = "";
   for (let i = 0; i <= ticks; i++) {
     const v = y0 + (i / ticks) * (y1 - y0), y = sy(v);
-    grid += `<line x1="${m.l}" x2="${W - m.r}" y1="${y}" y2="${y}" stroke="var(--grid)" stroke-width="1"/>
-             <text x="${m.l - 6}" y="${y + 4}" text-anchor="end" font-size="${fs}" fill="var(--muted)">${v.toFixed(narrow ? 0 : 1)}</text>`;
+    // Drawn per column, so nothing bridges the break.
+    grid += seasons.map(yr =>
+      `<line x1="${colX(yr).toFixed(1)}" x2="${(colX(yr) + colW).toFixed(1)}" y1="${y}" y2="${y}"
+             stroke="var(--grid)" stroke-width="1"/>`).join("") +
+      `<text x="${m.l - 6}" y="${y + 4}" text-anchor="end" font-size="${fs}" fill="var(--muted)">${v.toFixed(narrow ? 0 : 1)}</text>`;
   }
+
+  const baseline = seasons.map(yr =>
+    `<line x1="${colX(yr).toFixed(1)}" x2="${(colX(yr) + colW).toFixed(1)}"
+           y1="${H - m.b}" y2="${H - m.b}" stroke="var(--axis)"/>`).join("");
+
+  // The conventional break mark, so the gap reads as "the axis skips here"
+  // rather than "nobody raced and the chart trailed off".
+  const breaks = seasons.slice(0, -1).map(yr => {
+    const x = colX(yr) + colW + GAP / 2, y = H - m.b;
+    return [0, 4].map(o =>
+      `<line x1="${(x - 3 + o).toFixed(1)}" y1="${y + 4}" x2="${(x + 1 + o).toFixed(1)}" y2="${y - 4}"
+             stroke="var(--axis)" stroke-width="1.5" stroke-linecap="round"/>`).join("");
+  }).join("");
 
   // Within a single season the years all collapse onto one label, so show
   // months instead - otherwise a 2026 chart is labelled "2026" once and
   // nothing else.
-  const seasons = [...new Set(pts.map(p => p.season))];
   const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   let xlab = "";
   if (seasons.length === 1 && pts.length > 1) {
     const seen = new Set();
     pts.forEach(p => {
-      const d = new Date(p.date), label = MONTHS[d.getMonth()];
+      const label = MONTHS[new Date(p.date).getMonth()];
       if (seen.has(label)) return;
       seen.add(label);
-      xlab += `<text x="${sx(d.getTime())}" y="${H - 7}" text-anchor="middle"
+      xlab += `<text x="${sx(p).toFixed(1)}" y="${H - 7}" text-anchor="middle"
                      font-size="${fs}" fill="var(--muted)">${label}</text>`;
     });
   } else {
-    seasons.forEach(yr => {
-      const first = pts.find(p => p.season === yr);
-      xlab += `<text x="${sx(new Date(first.date).getTime())}" y="${H - 7}" text-anchor="middle"
-                     font-size="${fs}" fill="var(--muted)">${narrow ? String(yr).slice(2) : yr}</text>`;
-    });
+    xlab = seasons.map(yr =>
+      `<text x="${(colX(yr) + colW / 2).toFixed(1)}" y="${H - 7}" text-anchor="middle"
+             font-size="${fs}" fill="var(--muted)">${narrow ? String(yr).slice(2) : yr}</text>`).join("");
   }
 
-  const path = pts.map((p, i) =>
-    (i ? "L" : "M") + sx(new Date(p.date).getTime()).toFixed(1) + " " + sy(p.speed).toFixed(1)).join(" ");
+  // One path per season. Joining across the winter is the thing this chart
+  // most needs not to do.
+  const path = seasons.map(yr => {
+    const run = pts.filter(p => p.season === yr);
+    if (run.length < 2) return "";
+    return `<path d="${run.map((p, i) =>
+      (i ? "L" : "M") + sx(p).toFixed(1) + " " + sy(p.speed).toFixed(1)).join(" ")}"
+      fill="none" stroke="${colorOf(key)}" stroke-width="2"
+      stroke-linejoin="round" stroke-linecap="round"/>`;
+  }).join("");
   const color = colorOf(key);
   const dots = pts.map(p => {
     // A hand-added result has no field, so "#0 of 0" would be a lie rather than
@@ -848,7 +895,7 @@ function lineChart(runs, key, width) {
     const place = p.field ? `#${p.position} of ${p.field}` : "no recorded field";
     const t = `<b>${p.time}</b> · ${fmt(p.speed,1)} km/h<br>${p.date} · ${esc(p.title||"")}<br>` +
               `${place}${p.pb?" · personal best":""}`;
-    const cx = sx(new Date(p.date).getTime()).toFixed(1), cy = sy(p.speed).toFixed(1);
+    const cx = sx(p).toFixed(1), cy = sy(p.speed).toFixed(1);
     const amended = p.manual || p.edited;
     const note = p.manual ? " · added by hand" : p.edited ? ` · corrected from ${p.originalTime}` : "";
     // Amended points are drawn hollow in the warning hue, so a chart never
@@ -861,10 +908,10 @@ function lineChart(runs, key, width) {
 
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}"
       preserveAspectRatio="xMidYMid meet" role="img" aria-label="Speed over time">
-    ${grid}<line x1="${m.l}" x2="${W - m.r}" y1="${H - m.b}" y2="${H - m.b}" stroke="var(--axis)"/>
-    <path d="${path}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${grid}${baseline}${breaks}
+    ${path}
     ${dots}${xlab}
-    <text x="${m.l - 6}" y="${m.t + 2}" text-anchor="end" font-size="${fs - 1}" fill="var(--muted)">km/h</text>
+    <text x="${m.l - 6}" y="${m.t - 9}" text-anchor="end" font-size="${fs - 1}" fill="var(--muted)">km/h</text>
   </svg>`;
 }
 

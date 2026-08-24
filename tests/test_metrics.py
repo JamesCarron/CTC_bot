@@ -5,7 +5,7 @@ wrong: which distance a speed is computed from, when a field statistic is
 withheld, and when a trend line is refused.
 """
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -287,3 +287,109 @@ def test_a_few_bad_rows_do_not_condemn_a_good_event():
     rows = [(f"R{i}", 1500.0 + i * 20) for i in range(10)] + [("Ghost", 7.0)]
     event = make_event("mostly_ok", rows)
     assert curation.assess_event(event).include
+
+
+# ---- how hard was tonight? -----------------------------------------------
+
+
+SERIES = f"{cls.TIME_TRIAL}|Short (13 km)"
+
+
+def _weekly(counts, *, start_day=1, month=9):
+    """Race dates a week apart, in the format stored events carry."""
+    days = []
+    for index in range(counts):
+        when = date(2026, month, start_day) + timedelta(days=7 * index)
+        days.append(f"{when:%A} {when.day} {when:%b} '{when:%y}, 19:00")
+    return days
+
+
+def _season(regulars, *, tonight_factor=1.0, weeks=5):
+    """A run of weekly races where everyone holds a steady time, then one night
+    that is ``tonight_factor`` times slower for the whole field."""
+    dates = _weekly(weeks)
+    events = []
+    for index, date_text in enumerate(dates):
+        last = index == len(dates) - 1
+        factor = tonight_factor if last else 1.0
+        rows = [(name, base * factor) for name, base in regulars]
+        events.append(make_event(f"e{index}", rows, date_text=date_text))
+    return events, f"e{len(dates) - 1}"
+
+
+def _conditions(regulars, **kwargs):
+    events, code = _season(regulars, **kwargs)
+    athletes = metrics.build(events, idn.Registry())
+    return metrics.race_conditions(athletes, SERIES, code)
+
+
+SIX = [(f"R{i}", 1500.0 + i * 30) for i in range(6)]
+
+
+def test_a_night_everyone_was_slower_reads_as_hard():
+    """The point of the measure: separate the evening from the athlete."""
+    found = _conditions(SIX, tonight_factor=1.04)
+    assert found is not None
+    assert found.regulars == 6
+    assert found.percent < -3
+    assert found.verdict == "hard"
+
+
+def test_a_night_everyone_was_faster_reads_as_fast():
+    found = _conditions(SIX, tonight_factor=0.96)
+    assert found.percent > 3
+    assert found.verdict == "fast"
+
+
+def test_an_ordinary_night_reads_as_typical():
+    found = _conditions(SIX)
+    assert found.percent == pytest.approx(0.0, abs=0.2)
+    assert found.verdict == "typical"
+
+
+def test_one_persons_shocker_does_not_colour_the_evening():
+    """A median across athletes, so a single bad ride cannot move the verdict."""
+    events, code = _season(SIX)
+    # Give the last event's first finisher a disastrous ride.
+    for row in events[-1].event.results:
+        if row["Name"] == "R0":
+            row["TmResultSec"] = str(1500.0 * 1.5)
+    athletes = metrics.build(events, idn.Registry())
+    found = metrics.race_conditions(athletes, SERIES, code)
+    assert found.verdict == "typical"
+
+
+def test_too_few_regulars_says_nothing_at_all():
+    """With four people the figure is one person's bad day in a lab coat."""
+    four = [(f"R{i}", 1500.0 + i * 30) for i in range(4)]
+    assert _conditions(four, tonight_factor=1.04) is None
+
+
+def test_an_athlete_without_a_nearby_baseline_does_not_count():
+    """Someone racing for the first time has nothing to be compared against."""
+    events, code = _season(SIX)
+    newcomer = {**events[-1].event.results[0], "RaceID": "9999", "Name": "Newcomer"}
+    events[-1].event.results.append(newcomer)
+    athletes = metrics.build(events, idn.Registry())
+    assert metrics.race_conditions(athletes, SERIES, code).regulars == 6
+
+
+def test_a_baseline_is_taken_from_nearby_races_not_the_whole_history():
+    """Otherwise a club that gets fitter across a season would read as a season
+    of steadily improving weather."""
+    assert metrics.CONDITIONS_WINDOW_DAYS <= 90
+
+    old = _weekly(3, month=1)          # January
+    recent = _weekly(4, month=9)       # September, well outside the window
+    events = []
+    for index, date_text in enumerate(old):
+        events.append(make_event(f"o{index}", [(n, s * 1.10) for n, s in SIX],
+                                 date_text=date_text))
+    for index, date_text in enumerate(recent):
+        events.append(make_event(f"r{index}", SIX, date_text=date_text))
+
+    athletes = metrics.build(events, idn.Registry())
+    found = metrics.race_conditions(athletes, SERIES, "r3")
+    # Judged against September, where everyone was going the same speed - not
+    # against a January the whole club has since left behind.
+    assert found.percent == pytest.approx(0.0, abs=0.2)

@@ -89,8 +89,6 @@ def build_payload(stored_events, registry: idn.Registry) -> dict:
                     "speed": round(performance.speed_kmh, 2) if performance.speed_kmh else None,
                     "position": performance.position,
                     "field": performance.field_size,
-                    "z": round(performance.z_score, 2) if performance.z_score is not None else None,
-                    "pct": round(performance.percentile) if performance.percentile is not None else None,
                     "pb": performance.is_personal_best,
                     "raceId": performance.race_id,
                     # Only a directly claimed row can be released again; an
@@ -170,7 +168,22 @@ def build_payload(stored_events, registry: idn.Registry) -> dict:
         title = next(
             (run["title"] for _, run in runs if run["date"] == newest), None
         )
-        return {"date": newest, "title": title, "rows": rows}
+        code = next(run["event"] for _, run in runs if run["date"] == newest)
+        conditions = metrics.race_conditions(athletes, key, code)
+        return {
+            "date": newest,
+            "title": title,
+            "rows": rows,
+            "conditions": (
+                {
+                    "percent": round(conditions.percent, 1),
+                    "regulars": conditions.regulars,
+                    "verdict": conditions.verdict,
+                }
+                if conditions
+                else None
+            ),
+        }
 
     series_payload = []
     for key in series_keys:
@@ -230,7 +243,6 @@ def build_payload(stored_events, registry: idn.Registry) -> dict:
             "lastSeason": max((a["last"] for a in athlete_payload), default=""),
             "races": len({run["event"] for a in athlete_payload for run in a["runs"]}),
             "minRacesForTrend": idn.MIN_RACES_FOR_TREND,
-            "minFieldForStats": curation.MIN_FIELD_FOR_STATS,
             "verified": sum(1 for a in athlete_payload if a["verified"]),
         },
         "seriesLabels": {key: label_for(key) for key in series_keys},
@@ -244,15 +256,6 @@ def build_payload(stored_events, registry: idn.Registry) -> dict:
         "athletes": athlete_payload,
         "standings": standings_payload,
         "courses": course_payload,
-        "excluded": [
-            {
-                "code": s.code,
-                "title": s.title,
-                "date": s.date_text,
-                "reason": curation.assess_event(s).reason,
-            }
-            for s in excluded
-        ],
     }
 
 
@@ -563,6 +566,7 @@ _TEMPLATE = r"""<!doctype html>
   <section id="latest-section">
     <h2>Latest race</h2>
     <p class="hint" id="latest-sub"></p>
+    <p class="hint" id="latest-conditions"></p>
     <div class="scroll"><table id="latest"></table></div>
   </section>
 
@@ -590,10 +594,6 @@ _TEMPLATE = r"""<!doctype html>
     <h2>How this is measured</h2>
     <div id="courses"></div>
     <div id="hidden-note"></div>
-    <details>
-      <summary>Events excluded from these figures (<span id="exc-count"></span>)</summary>
-      <div class="scroll"><table id="excluded"></table></div>
-    </details>
   </section>
 </main>
 
@@ -608,6 +608,34 @@ const seriesOf = (key) => DATA.series.find(s => s.key === key);
 const S = DATA.summary;
 
 const state = { series: seriesKeys[0], athlete: null, filter: "", year: null };
+
+/* ---------- state across a reload ----------
+   A write action reloads the page so its effect is visible, which would
+   otherwise drop the visitor back at the top with nobody selected. The tab,
+   the athlete and the chosen season ride along in the URL fragment, so a
+   reload comes back to the same view - and a link to an athlete now works. */
+function rememberState() {
+  const parts = [`s=${encodeURIComponent(state.series)}`];
+  if (state.athlete) parts.push(`a=${encodeURIComponent(state.athlete.id)}`);
+  if (state.year !== null) parts.push(`y=${state.year}`);
+  history.replaceState(null, "", "#" + parts.join("&"));
+}
+
+function restoreState() {
+  const raw = location.hash.replace(/^#/, "");
+  if (!raw) return;
+  const q = new URLSearchParams(raw);
+  const series = q.get("s");
+  if (series && seriesKeys.includes(series)) state.series = series;
+  const year = q.get("y");
+  // A year that is not in this athlete's history is discarded by showAthlete,
+  // so only "all" and a number need distinguishing here.
+  if (year) state.year = year === "all" ? "all" : Number(year);
+  const athlete = q.get("a");
+  // A stub is enough: renderSeries looks the real athlete up by id, and an id
+  // that no longer exists (released, renamed) simply selects nobody.
+  if (athlete) state.athlete = { id: athlete };
+}
 
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, c =>
@@ -645,6 +673,7 @@ function renderTabs() {
       state.year = null;   // fall back to the new athlete's latest season
       renderTabs();
       renderSeries();
+      rememberState();
     };
   });
 }
@@ -661,9 +690,7 @@ function athletesInSeries() {
 function renderSeries() {
   const s = seriesOf(state.series);
   $("series-title").textContent = s.label;
-  $("series-sub").textContent =
-    `${year(s.first)}–${year(s.last)}. Field statistics are withheld where fewer ` +
-    `than ${S.minFieldForStats} people finished.`;
+  $("series-sub").textContent = `${year(s.first)}–${year(s.last)}.`;
   $("tiles").innerHTML = [
     [s.races, "races"],
     [s.athletes, "athletes"],
@@ -707,6 +734,7 @@ function renderLatest(s) {
   if (!L) { $("latest-section").style.display = "none"; return; }
   $("latest-section").style.display = "";
   $("latest-sub").textContent = `${L.title || ""} — ${L.date}`;
+  $("latest-conditions").innerHTML = conditionsNote(L.conditions);
   $("latest").innerHTML =
     `<thead><tr><th class="num">#</th><th>Athlete</th><th class="num">Time</th>
       <th class="num">km/h</th><th class="num">vs their average</th><th></th></tr></thead><tbody>` +
@@ -722,6 +750,33 @@ function renderLatest(s) {
         <td class="num ${cls}">${vs}</td>
         <td>${r.pb ? '<span class="pill pb">PB</span>' : ""}</td></tr>`;
     }).join("") + "</tbody>";
+}
+
+/* Was it the rider or the evening?
+   Club times swing with the wind, and somebody looking at a slow result has no
+   way to tell which it was. Each regular is compared with their own recent
+   median and the ratios combined, so the sentence describes the conditions
+   rather than who happened to turn up. Nothing is said at all when too few
+   regulars raced - see metrics.race_conditions. */
+function conditionsNote(c) {
+  if (!c) return "";
+  const why = "Each regular is compared with their own recent median, so this " +
+              "describes the evening rather than who turned up.";
+  const people = `The ${c.regulars} regulars racing`;
+  if (c.verdict === "typical") {
+    return `<span title="${why}"><b>An ordinary evening.</b> ${people} went about as
+      fast as they usually do.</span>`;
+  }
+  const faster = c.percent > 0;
+  const head = {
+    fast:  "A fast evening.",
+    quick: "Slightly quicker than usual.",
+    slow:  "Slightly slower than usual.",
+    hard:  "A hard evening.",
+  }[c.verdict];
+  return `<span title="${why}"><b class="${faster ? "good" : "bad"}">${head}</b> ${people}
+    were ${Math.abs(c.percent).toFixed(1)}% ${faster ? "faster" : "slower"} than they
+    normally go.</span>`;
 }
 
 function renderList() {
@@ -807,8 +862,11 @@ function lineChart(runs, key, width) {
     (i ? "L" : "M") + sx(new Date(p.date).getTime()).toFixed(1) + " " + sy(p.speed).toFixed(1)).join(" ");
   const color = colorOf(key);
   const dots = pts.map(p => {
+    // A hand-added result has no field, so "#0 of 0" would be a lie rather than
+    // a gap; it says so instead.
+    const place = p.field ? `#${p.position} of ${p.field}` : "no recorded field";
     const t = `<b>${p.time}</b> · ${fmt(p.speed,1)} km/h<br>${p.date} · ${esc(p.title||"")}<br>` +
-              `#${p.position} of ${p.field}${p.z!==null?` · z ${p.z>0?"+":""}${p.z}`:""}${p.pb?" · personal best":""}`;
+              `${place}${p.pb?" · personal best":""}`;
     const cx = sx(new Date(p.date).getTime()).toFixed(1), cy = sy(p.speed).toFixed(1);
     const amended = p.manual || p.edited;
     const note = p.manual ? " · added by hand" : p.edited ? ` · corrected from ${p.originalTime}` : "";
@@ -855,6 +913,7 @@ function showAthlete(a) {
       <b>Pick an athlete</b>
       Search or scroll the list to see someone's history and trend.
     </div>`;
+    rememberState();
     return;
   }
 
@@ -944,14 +1003,19 @@ function showAthlete(a) {
       showAthlete(a);
     };
   });
+  rememberState();
   const panel = $("athlete-panel");
-  panel.querySelectorAll("button.disown:not(.remove-added)").forEach(b => {
+  // Bound on `js-` classes, never on `disown`. `disown` is styling - it is what
+  // makes a button red - and three different actions wear it. Selecting on it
+  // once bound the opt-out button to /api/disown with no ids at all, and only
+  // the accident of wireOptOut running afterwards kept opting out working.
+  panel.querySelectorAll("button.js-disown").forEach(b => {
     b.onclick = () => postRow("/api/disown", a, b.dataset.e, b.dataset.r, b);
   });
-  panel.querySelectorAll("button.reset-time").forEach(b => {
+  panel.querySelectorAll("button.js-reset-time").forEach(b => {
     b.onclick = () => postRow("/api/reset-time", a, b.dataset.e, b.dataset.r, b);
   });
-  panel.querySelectorAll("button.edit-time").forEach(b => {
+  panel.querySelectorAll("button.js-edit-time").forEach(b => {
     b.onclick = () => {
       const entered = prompt(
         "Corrected time for this race (e.g. 25:37.2).\n\n" +
@@ -961,8 +1025,9 @@ function showAthlete(a) {
       postRow("/api/edit-time", a, b.dataset.e, b.dataset.r, b, { time: entered.trim() });
     };
   });
-  panel.querySelectorAll("button.remove-added").forEach(b => {
-    b.onclick = () => postJson("/api/remove-result", { additionId: b.dataset.a }, b, $("row-msg"));
+  panel.querySelectorAll("button.js-remove-added").forEach(b => {
+    b.onclick = () => postJson(
+      "/api/remove-result", { additionId: b.dataset.a }, b, $("row-msg"), { reload: true });
   });
   wireAdopt(a);
   wireAddRace(a);
@@ -1008,19 +1073,21 @@ function claimForm(a) {
    corrected, reset to its published time, or released back to its entry name. */
 function rowActions(r) {
   if (r.manual) {
-    return `<button class="link-btn disown remove-added" data-a="${esc(r.additionId)}"
+    return `<button class="link-btn disown js-remove-added" data-a="${esc(r.additionId)}"
               title="Delete this hand-added result">Remove</button>`;
   }
-  const edit = `<button class="link-btn edit-time" data-e="${esc(r.event)}"
+  const edit = `<button class="link-btn js-edit-time" data-e="${esc(r.event)}"
       data-r="${esc(r.raceId)}" data-t="${esc(r.time)}"
       title="Correct this time">Edit</button>`;
   const reset = r.edited
-    ? `<button class="link-btn reset-time" data-e="${esc(r.event)}" data-r="${esc(r.raceId)}"
+    ? `<button class="link-btn js-reset-time" data-e="${esc(r.event)}" data-r="${esc(r.raceId)}"
          title="Restore the published time">Reset</button>`
     : "";
   const disown = r.claimed
-    ? `<button class="link-btn disown" data-e="${esc(r.event)}" data-r="${esc(r.raceId)}"
-         title="Return this result to the name on the entry list">Not mine</button>`
+    ? `<button class="link-btn disown js-disown" data-e="${esc(r.event)}" data-r="${esc(r.raceId)}"
+         title="Release this result back to the name on the entry list. If that name is a
+spelling of your own it stays listed here, but only as a match by name — use it on a
+result somebody else rode.">Not mine</button>`
     : `<span class="pill" title="Matched by name, not individually confirmed">by name</span>`;
   return edit + reset + disown;
 }
@@ -1064,7 +1131,7 @@ function optOutPanel(a) {
       admin if you want to be listed again.
     </p>
     <div class="row">
-      <button class="link-btn disown" id="optout-go">Remove ${esc(a.name)} from this site</button>
+      <button class="link-btn disown js-optout" id="optout-go">Remove ${esc(a.name)} from this site</button>
     </div>
     <div class="msg" id="optout-msg"></div>
   </div>`;
@@ -1105,7 +1172,13 @@ function adoptPanel(a) {
   </div>`;
 }
 
-async function postJson(url, body, button, msg) {
+/* `opts.reload` reloads the page on success rather than printing a note.
+   Row actions need it: the message element lives at the foot of the panel, so
+   a "Not mine" click a screenful above it appeared to do nothing at all - the
+   row stayed put and the confirmation landed off-screen. Reloading makes the
+   row visibly go, which is the feedback the action was asking for. A failure
+   never reloads, and is scrolled into view instead. */
+async function postJson(url, body, button, msg, opts) {
   msg = msg || $("row-msg") || $("claim-msg");
   if (button) button.disabled = true;
   if (msg) msg.textContent = "Saving…";
@@ -1115,22 +1188,34 @@ async function postJson(url, body, button, msg) {
       body: JSON.stringify(body),
     });
     const out = await res.json();
+    if (out.ok && opts && opts.reload) {
+      rememberState();
+      location.reload();
+      return true;
+    }
     if (msg) {
       msg.innerHTML = out.ok
         ? `<span class="good">${esc(out.message)}</span> Refresh to see it applied.`
         : `<span class="bad">${esc(out.message || "Could not save.")}</span>`;
+      if (!out.ok) msg.scrollIntoView({ block: "center", behavior: "smooth" });
     }
     return out.ok;
   } catch (e) {
-    if (msg) msg.innerHTML = `<span class="bad">No server — open this page via <code>ctc dashboard</code>.</span>`;
+    if (msg) {
+      msg.innerHTML = `<span class="bad">No server — open this page via <code>ctc dashboard</code>.</span>`;
+      msg.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
     return false;
   } finally {
     if (button) button.disabled = false;
   }
 }
 
+/* Every per-row action changes what the table should show, so all of them
+   reload. */
 const postRow = (url, a, event, raceId, button, extra) =>
-  postJson(url, { athleteId: a.id, event, raceId, ...(extra || {}) }, button);
+  postJson(url, { athleteId: a.id, event, raceId, ...(extra || {}) },
+           button, null, { reload: true });
 
 function wireAddRace(a) {
   const go = $("add-go");
@@ -1164,11 +1249,11 @@ function wireAdopt(a) {
             <td>${esc(r.name)}</td>
             <td class="num">${esc(r.time)}</td>
             <td>${r.owner ? esc(r.owner) : '<span style="color:var(--muted)">unclaimed</span>'}</td>
-            <td class="num"><button class="link-btn adopt"
+            <td class="num"><button class="link-btn js-adopt"
                  data-e="${esc(r.event)}" data-r="${esc(r.raceId)}">Add</button></td>
           </tr>`).join("") + "</tbody></table></div>"
         : `<p class="hint">Nothing else found for that name.</p>`;
-      box.querySelectorAll("button.adopt").forEach(b => {
+      box.querySelectorAll("button.js-adopt").forEach(b => {
         b.onclick = () => postRow("/api/adopt", a, b.dataset.e, b.dataset.r, b);
       });
     } catch (e) {
@@ -1221,20 +1306,15 @@ $("courses").innerHTML = DATA.courses.map(c => `
     ${c.legs.map(l => `${esc(l.name)} ${l.km} km`).join(" + ")}
     ${c.routes.length ? "· routes: " + c.routes.map(r => `${esc(r.name)} (${r.km} km)`).join(", ") : ""}</p>`).join("") +
   `<p class="hint">Distances are configured, not taken from each event page: the pages
-   disagree with themselves. Results implying an impossible speed are dropped — hand
-   timing misfires both ways.</p>`;
+   disagree with themselves. Results implying an impossible speed are dropped — each
+   timed leg as well as the whole course, because a believable total can hide one
+   impossible split. Hand timing misfires both ways.</p>`;
 
 $("hidden-note").innerHTML = DATA.hidden.length
   ? `<div class="note">Hidden for now: ${DATA.hidden.map(h => esc(h.label)).join(", ")}.
      Those events are still stored — re-enable with
      <code>ctc courses -- --enable "time_trial:Long (13.8 km)"</code>.</div>`
   : "";
-
-$("exc-count").textContent = DATA.excluded.length;
-$("excluded").innerHTML =
-  `<thead><tr><th>Date</th><th>Event</th><th>Why excluded</th></tr></thead><tbody>` +
-  DATA.excluded.map(e => `<tr><td>${esc(e.date || "")}</td><td>${esc(e.title || "")}</td>
-    <td>${esc(e.reason)}</td></tr>`).join("") + "</tbody>";
 
 /* ---------- redraw on resize ---------- */
 // The chart is sized to its container at render time, so a rotation or a
@@ -1249,6 +1329,7 @@ addEventListener("resize", () => {
 });
 
 /* ---------- go ---------- */
+restoreState();
 renderTabs();
 renderSeries();
 </script>

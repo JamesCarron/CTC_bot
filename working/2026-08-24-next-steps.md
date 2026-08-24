@@ -1,176 +1,137 @@
 # CTC_bot — next steps
 
-Written at a quota checkpoint. Nothing here is implemented; each item has enough
-diagnosis to be picked up cold.
+Written at a quota checkpoint on 2026-08-24. **All five items were implemented on
+2026-08-25** — this file now records what was done and what is still outstanding.
 
-Live at `https://tri.jamescarron.cloud` (password `CTC2026`), 334 tests passing,
-deployed image `778af9f`.
-
----
-
-## 1. "Not mine" button not working — BUG
-
-Reported live. Two candidates, and the first is confirmed to exist regardless.
-
-### 1a. Class collision I introduced (confirmed by inspection)
-
-`dashboard.py` has three buttons carrying `class="link-btn disown"`:
-
-| Line | Button | Data attributes |
-|---|---|---|
-| 1011 | Remove a hand-added result | `data-a` (addition id) |
-| 1022 | **Not mine** | `data-e`, `data-r` |
-| 1067 | **Remove from this site** (opt-out) | *none* |
-
-The binder at line 948 is:
-
-```js
-panel.querySelectorAll("button.disown:not(.remove-added)").forEach(b => {
-  b.onclick = () => postRow("/api/disown", a, b.dataset.e, b.dataset.r, b);
-});
-```
-
-That selector matches the opt-out button too, binding it to `/api/disown` with
-`undefined` event and raceId. `wireOptOut` runs afterwards and overwrites
-`onclick`, so opt-out currently works by luck of ordering.
-
-**Fix:** give the actions their own classes rather than overloading `disown` as
-both "styled red" and "is a disown control". Suggest `js-disown`, `js-remove-added`,
-`js-optout` for behaviour, keeping `disown` purely cosmetic.
-
-### 1b. It may be working but look broken
-
-`postJson` reports success into `#row-msg` and says *"Refresh to see it applied."*
-The row stays visible until reload, which reads as nothing happening.
-
-**Fix:** on success, reload the page (or re-fetch the payload and re-render).
-Given the dashboard is a single generated document, `location.reload()` is
-honest and cheap.
-
-**Diagnose first:** open devtools, click Not mine, check whether
-`POST /api/disown` fires and what it returns. If it 404s with *"not claimed by
-this athlete"*, the row was `inferred` rather than `claimed` and the button
-should not have rendered — check `r.claimed` in the payload.
+Live at `https://tri.jamescarron.cloud` (password `CTC2026`), 348 tests passing.
 
 ---
 
-## 2. Drop the excluded-events list
+## 1. "Not mine" button — DONE
 
-The "How this is measured" section ends with a `<details>` listing all 57
-excluded events. It was useful while curation was being tuned; it now just
-invites questions about races nobody is looking for.
+Two causes, both real.
 
-Remove the `<details>` block, `#exc-count`, `#excluded`, and the `excluded`
-array from the payload (`build_payload`). Keep `curation` itself untouched —
-only the display goes. Tests referencing `test_excluded_events_are_listed_with_reasons`
-will need updating.
+### 1a. Class collision (confirmed live)
+
+`disown` was doing two jobs: "styled red" and "is a disown control". Three
+buttons wore it — remove-a-hand-added-result, Not mine, and the opt-out button
+added in the previous deploy. The binder selected
+`button.disown:not(.remove-added)`, which matched **16** buttons on James
+Carron's panel when only 15 were Not-mine. The extra one was opt-out, bound to
+`/api/disown` with `undefined` ids; `wireOptOut` overwrote it afterwards, so
+opting out worked purely by luck of ordering.
+
+**Fixed** by splitting behaviour classes from cosmetic ones: `js-disown`,
+`js-optout`, `js-remove-added`, `js-edit-time`, `js-reset-time`, `js-adopt`.
+`disown` is now styling only. Verified in the browser: the new selector matches
+exactly 15.
+
+### 1b. It worked, and looked like it hadn't
+
+`/api/disown` was fine all along — calling `disown_row` directly returned
+*"Released back to 'James', as printed on the entry list."* The problem was
+feedback. `#row-msg` lives at the foot of the athlete panel, inside the "Add a
+result that is missing" box. A Not-mine click a screenful above it printed
+"Refresh to see it applied" off-screen and left the row exactly where it was.
+
+**Fixed**: every row action now reloads the page on success, so the change is
+the feedback. Failures never reload and are scrolled into view instead.
+
+To stop the reload dumping people back at the top, the tab, athlete and season
+now ride in the URL fragment (`#s=…&a=…&y=…`) — which also makes an athlete
+linkable. Verified end to end: clicked Not mine, page reloaded, James Carron
+still selected on the same season, disown buttons 15 → 14.
+
+### 1c. The subtler trap
+
+Releasing a row whose entry name is a spelling of your own puts it straight back
+by *inference* — it stays on the page, now marked "by name" instead of claimed.
+That is correct, but it looks like nothing happened. The button's tooltip now
+says so.
+
+## 2. Excluded-events list — DONE
+
+`<details>`, `#exc-count`, `#excluded` and the `excluded` array are gone.
+`summary.excluded` keeps the count. `curation` is untouched.
+
+## 3. Field-statistics wording — DONE
+
+The series subtitle is now just the year range. `z` and `pct` are out of the
+payload (the page is 732 KB → 699 KB), though still computed — item 5 needs the
+same field context. The chart tooltip dropped its z-score, and a hand-added
+result now reads "no recorded field" rather than "#0 of 0".
+`curation.MIN_FIELD_FOR_STATS` stays.
+
+## 4. Aquathon plausibility bounds — DONE, per leg
+
+The combined 3–14 km/h bound turned out to reject **nothing** among real
+finishers in included events — all 283 rejections were `TmResultSec <= 0`, i.e.
+DNS/DNF. Real finishers run 3.9–12.4 km/h, comfortably inside. So the combined
+bound was not the problem; the missing check was per-leg.
+
+`Leg` now carries its own bounds, and `Course.is_plausible` checks the splits
+when they line up with the configured legs:
+
+| Leg | km | min | max | max means |
+|---|---|---|---|---|
+| Swim | 0.6 | 0.9 | 6.5 | 600 m in 5:32 — quicker than the 800 m free world record |
+| Run | 3.5 | 3.0 | 19.0 | 3.5 km in 11:03 — quicker than anyone in the club |
+
+Measured from 691 real splits: swim 1.1–9.6 km/h (median 2.9), run 5.5–24.9
+(median 12.3).
+
+**Caught 5 results** whose totals looked perfectly ordinary but whose splits
+cannot both be real — e.g. a 19:40 swim paired with an 8:26 run for 3.5 km,
+faster than the world record. No event's curation verdict changed (148 included
+/ 61 excluded, before and after).
+
+The combined bound stays at 3–14. Widening the floor to 2.5 would readmit
+exactly two 97-minute results that the earlier notes already flagged as
+ambiguous; there is no evidence either way, so it was left alone.
+
+An untimed or differently-shaped split set is not judged — a missing split is
+not evidence of a bad one. Configs written before leg bounds existed fall back
+to the built-in bounds, not to "no limit".
+
+## 5. "How fast was tonight?" — DONE
+
+`metrics.race_conditions(athletes, series, event_code)` returns a `Conditions`
+or `None`. Each regular is compared with the **median of their own nearby
+results**, and the ratios combined with another median.
+
+- `CONDITIONS_WINDOW_DAYS = 60` — the trap the earlier notes identified. Using a
+  whole history measures form as much as weather; a club fitter in August than
+  in March would make every August read as fast conditions for ever. ±60 days is
+  short enough that fitness is flat and long enough that a weekly race fills it.
+- `CONDITIONS_MIN_BASELINE = 3` nearby races before an athlete counts.
+- `CONDITIONS_MIN_REGULARS = 5` — below that, say nothing at all.
+
+Bands: ≥+2.5% fast, ≥+1% quick, ±1% typical, −2.5% slow, below that hard. Taken
+from the spread actually observed (−3% to +4% across recent time trials), so the
+5% band the earlier notes suggested would never have fired.
+
+Shown as one sentence under the latest-race title:
+
+> **An ordinary evening.** The 9 regulars racing went about as fast as they
+> usually do.
+
+The aquathon prints nothing — too few consolidated identities to have five
+regulars, which is the honest answer and matches the draft warning on that tab.
 
 ---
 
-## 3. Remove the field-statistics wording
+## Still outstanding
 
-Already-dropped feature still advertised. The series subtitle says:
-
-> "Field statistics are withheld where fewer than 5 people finished."
-
-Nothing shows z-scores or percentiles any more — the "vs field" column went when
-the athlete table was trimmed.
-
-- Remove that sentence from `renderSeries`.
-- Decide whether `z` / `pct` stay in the payload. They are still computed in
-  `metrics.build` and carried per run, costing size for nothing. Recommend
-  keeping the *computation* (item 5 needs the same field context) but dropping
-  them from the payload.
-- `curation.MIN_FIELD_FOR_STATS` stays — item 5 will want it.
-
----
-
-## 4. Tune the aquathon plausibility bounds
-
-Currently `min_speed_kmh=3.0`, `max_speed_kmh=14.0` over the combined 4.1 km, set
-by eyeballing the distribution. The time trial's bounds were tuned properly
-against real data; the aquathon's were not, which is part of why that tab still
-carries a draft warning.
-
-Real aquathon distribution measured earlier (n=747, before filtering):
-
-| Band km/h | Count | Reading |
-|---|---|---|
-| 0–2 | 12 | timers left running (21–24 h) |
-| 2–4 | 4 | ambiguous — 4.1 km at 3 km/h is 82 min |
-| 4–6 | 44 | plausible, slow |
-| 6–8 | 255 | the bulk |
-| 8–10 | 363 | the bulk |
-| 10–12 | 65 | fast |
-| 12–14 | 2 | very fast |
-| >14 | 2 | 359 km/h — the 40-second "race" |
-
-**Approach:** the swim and run legs have very different plausible ranges, and a
-combined figure hides both. Since `leg_seconds` is already parsed, bound each leg
-separately — 600 m swim and 3.5 km run — which catches a plausible total made of
-one impossible leg. That is the case the current single bound cannot see.
-
-Sanity anchors from real data: winner's swim 11:27 (1:54/100 m), run 14:15
-(4:04/km).
-
----
-
-## 5. "How fast was tonight?" — conditions note
-
-The most interesting item. Club times swing with wind and weather, and an
-athlete seeing a slow time has no way to know whether it was them or the evening.
-
-### Method
-
-1. **Pick the regulars.** Athletes with enough results *in that series* to have a
-   personal baseline — reuse `MIN_RACES_FOR_TREND` (3) or require more, say 5.
-2. **Baseline each one on themselves**, not on the field: the *median* of their
-   other results in that series. Median, not mean, so one bad night does not
-   move their own yardstick.
-3. **Ratio per athlete:** `tonight_speed / their_median_speed`. Above 1 = faster
-   than they usually go.
-4. **Combine with a median of the ratios**, again for robustness — one person
-   having a shocker must not colour the whole evening.
-5. **Only report it with enough regulars present.** Below ~5 it is one person's
-   day rather than the conditions. Say nothing rather than guess.
-
-### Reporting
-
-> "Times were about **4% slower** than usual for the 11 regulars racing —
-> a tough evening."
-
-Bands roughly: >2% faster = fast conditions; ±2% = typical; >2% slower = slow;
->5% slower = hard.
-
-### The trap to avoid
-
-This confounds *conditions* with *form*. Using each athlete's own median handles
-individual improvement, but not a season-wide trend — if the whole club is
-fitter in August than March, August looks like "fast conditions" forever.
-
-Mitigation: baseline against each athlete's *nearby* races (say ±60 days) rather
-than their whole history. More code, but it measures the evening rather than the
-season.
-
-### Where it goes
-
-The latest-race strip, as one sentence under the event title. It is also the
-right place to put it for the race-night poll, so the note appears the moment
-results land.
-
----
-
-## Also outstanding (from earlier sessions)
-
-- **CI still not running.** Every deploy is a manual build on the box. Needs
-  `infra` → Settings → Actions → General → Access → *accessible from
-  repositories owned by the user*, plus an `INFRA_REPO_TOKEN` secret on
-  `CTC_bot`. Until then, deploys are: build on box, bump SHA in
+- **This is not deployed.** Build on the box, bump the SHA in
   `apps/tri/compose.yml`, `docker compose up -d`.
+- **CI still not running.** Needs `infra` → Settings → Actions → General →
+  Access → *accessible from repositories owned by the user*, plus an
+  `INFRA_REPO_TOKEN` secret on `CTC_bot`.
 - **Race-night polling is untested against a real race.** First live run is
   Tuesday 19:00. Worth watching `docker logs tri-app-1`.
 - **RaceClocker session expiry** in a long-lived container. `session.py` detects
-  being bounced to the login form but does not re-login; the sweep will fail and
-  log until that retry is added.
-- **Archive the Windows `identity.json` / `overrides.json`.** Backup is
-  Hetzner snapshots only, 24 h granularity, no per-file history.
+  being bounced to the login form but does not re-login.
+- **Archive the Windows `identity.json` / `overrides.json`.** Backup is Hetzner
+  snapshots only, 24 h granularity, no per-file history.
+- **Aquathon identities are still unconsolidated**, which is what keeps the
+  conditions note off that tab and the draft warning on it.

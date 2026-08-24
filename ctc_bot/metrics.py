@@ -27,7 +27,7 @@ from __future__ import annotations
 import re
 import statistics
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 
 from . import config, curation
 from . import identity as idn
@@ -198,7 +198,13 @@ def _event_finishers(stored, courses=None) -> list[dict]:
         row
         for row in stored.event.results
         if _row_seconds(row) is not None
-        and config.is_plausible(stored.race_type, _row_seconds(row), distance, courses)
+        and config.is_plausible(
+            stored.race_type,
+            _row_seconds(row),
+            distance,
+            courses,
+            leg_seconds=rc.leg_seconds(row),
+        )
     ]
     return rc.ranked(plausible)
 
@@ -348,6 +354,104 @@ def _mark_personal_bests(athletes: dict[str, Athlete]) -> None:
             runs = athlete.in_series(series)
             best = min(runs, key=lambda p: p.seconds)
             best.is_personal_best = True
+
+
+# --- how hard was tonight? ---------------------------------------------------
+
+CONDITIONS_WINDOW_DAYS = 60
+"""How far either side of a race to look for an athlete's own baseline.
+
+Deliberately *not* their whole history. Baselining on everything an athlete has
+ever done measures their form as much as the evening: a club that is fitter in
+August than in March would make every August look like fast conditions, for
+ever. A window of a couple of months either side is short enough that fitness is
+roughly flat across it and long enough that a weekly race fills it comfortably -
+in practice 7 to 12 people qualify on a normal club night.
+"""
+
+CONDITIONS_MIN_BASELINE = idn.MIN_RACES_FOR_TREND
+"""Nearby races an athlete needs before their own median means anything."""
+
+CONDITIONS_MIN_REGULARS = 5
+"""Below this, say nothing.
+
+With four people the figure is one person's bad day wearing a lab coat. The
+honest output for a thin field is no output at all.
+"""
+
+
+@dataclass
+class Conditions:
+    """How fast a race ran, measured against the people who were there.
+
+    The field mean is useless for this: who turns up changes week to week, so a
+    night with three fast riders absent looks like bad weather. Instead every
+    regular is compared with *their own* recent median, and the ratios are
+    combined - which asks "was everybody slower than they usually are?", the
+    question the weather actually answers.
+    """
+
+    ratio: float
+    """Median of speed-vs-own-baseline across the regulars. >1 is faster."""
+
+    regulars: int
+
+    @property
+    def percent(self) -> float:
+        """Signed percentage, positive for faster than usual."""
+        return (self.ratio - 1) * 100
+
+    @property
+    def verdict(self) -> str:
+        """A plain description of the evening.
+
+        The thresholds come from the spread actually observed: across recent
+        club time trials the figure ranges about -3% to +4%, so a 5% band would
+        never fire and a 0.5% one would fire every week.
+        """
+        pct = self.percent
+        if pct >= 2.5:
+            return "fast"
+        if pct >= 1.0:
+            return "quick"
+        if pct > -1.0:
+            return "typical"
+        if pct > -2.5:
+            return "slow"
+        return "hard"
+
+
+def race_conditions(
+    athletes: dict[str, Athlete], series: str, event_code: str
+) -> Conditions | None:
+    """How this race compared with how its regulars normally go.
+
+    Returns ``None`` rather than a guess whenever too few people have a usable
+    baseline - a thin night genuinely cannot be judged.
+    """
+    ratios = []
+    for athlete in athletes.values():
+        runs = athlete.in_series(series)
+        tonight = next((p for p in runs if p.event_code == event_code), None)
+        if tonight is None or not tonight.speed_kmh:
+            continue
+
+        first = tonight.when - timedelta(days=CONDITIONS_WINDOW_DAYS)
+        last = tonight.when + timedelta(days=CONDITIONS_WINDOW_DAYS)
+        baseline = [
+            p.speed_kmh
+            for p in runs
+            if p.event_code != event_code and p.speed_kmh and first <= p.when <= last
+        ]
+        if len(baseline) < CONDITIONS_MIN_BASELINE:
+            continue
+        # Median, not mean: one shocker in the window must not move the very
+        # yardstick it is being measured against.
+        ratios.append(tonight.speed_kmh / statistics.median(baseline))
+
+    if len(ratios) < CONDITIONS_MIN_REGULARS:
+        return None
+    return Conditions(ratio=statistics.median(ratios), regulars=len(ratios))
 
 
 def latest_event(stored_events):

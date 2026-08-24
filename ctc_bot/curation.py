@@ -154,6 +154,7 @@ def implausible_share(stored) -> float:
     the case where the whole event is wrong.
     """
     from . import config
+    from . import raceclocker as rc
 
     distance = config.event_distance_km(
         stored.race_type, stored.listing.get("listed_distance_km")
@@ -167,7 +168,9 @@ def implausible_share(stored) -> float:
         if seconds <= 0:
             continue
         timed += 1
-        if not config.is_plausible(stored.race_type, seconds, distance):
+        if not config.is_plausible(
+            stored.race_type, seconds, distance, leg_seconds=rc.leg_seconds(row)
+        ):
             bad += 1
     return bad / timed if timed else 0.0
 

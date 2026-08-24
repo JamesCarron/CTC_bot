@@ -201,10 +201,18 @@ def test_unverified_athletes_are_flagged(payload):
     assert all(a["verified"] is False for a in payload["athletes"])
 
 
-def test_excluded_events_are_listed_with_reasons(events):
-    events.append(make_event("copy", [("Ann", 1.0)], title="(Copy of) TT one"))
+def test_excluded_events_are_counted_but_not_listed(events):
+    """An excluded event is kept out of the figures and off the page.
+
+    The full list with reasons was useful while curation was being tuned, but it
+    only ever invited questions about races nobody was looking for. The count
+    stays so the exclusion is still visible in the payload.
+    """
+    events.append(make_event("copy", [("Zelda Onlyhere", 1.0)], title="(Copy of) TT one"))
     payload = dashboard.build_payload(events, idn.Registry())
-    assert any(e["reason"] == "copy" for e in payload["excluded"])
+    assert "excluded" not in payload
+    assert payload["summary"]["excluded"] == 1
+    assert not any(a["name"] == "Zelda Onlyhere" for a in payload["athletes"])
 
 
 def test_payload_is_json_serialisable(payload):

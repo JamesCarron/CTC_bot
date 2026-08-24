@@ -37,10 +37,35 @@ CONFIG_PATH = Path(__file__).resolve().parent.parent / "data" / "courses.json"
 
 @dataclass
 class Leg:
-    """One timed leg of a course."""
+    """One timed leg of a course.
+
+    A leg carries its own plausibility bounds because a two-leg race hides its
+    own errors: a 600 m swim and a 3.5 km run have nothing like the same
+    believable pace, so a combined figure sits comfortably inside the overall
+    bounds even when one leg is impossible. Two real aquathon results have a
+    3.5 km run split faster than the world record and a total that looks
+    perfectly ordinary.
+
+    The defaults are wide open, so a leg with no bounds configured is simply not
+    checked - which is the right answer for the single-leg time trial, where the
+    leg *is* the course and the course-level bounds already cover it.
+    """
 
     name: str
     distance_km: float
+    min_speed_kmh: float = 0.0
+    max_speed_kmh: float = 1e6
+
+    def is_plausible(self, seconds: float) -> bool:
+        """Whether this leg could really have been swum or run in that time.
+
+        An untimed leg (zero or missing) is not judged: plenty of results record
+        only a total, and absence of a split is not evidence of a bad one.
+        """
+        if seconds <= 0 or not self.distance_km:
+            return True
+        speed = self.distance_km / (seconds / 3600)
+        return self.min_speed_kmh <= speed <= self.max_speed_kmh
 
 
 @dataclass
@@ -94,15 +119,32 @@ class Course:
     admin restates the course distance.
     """
 
-    def is_plausible(self, seconds: float, distance_km: float | None = None) -> bool:
-        """Whether a finish time could really have been ridden or run."""
+    def is_plausible(
+        self,
+        seconds: float,
+        distance_km: float | None = None,
+        leg_seconds: list[float] | None = None,
+    ) -> bool:
+        """Whether a finish time could really have been ridden or run.
+
+        ``leg_seconds`` is checked as well when the splits line up with the
+        configured legs, which catches the case the overall bounds cannot see:
+        a believable total made of one impossible leg.
+        """
         if seconds <= 0:
             return False
         km = distance_km if distance_km is not None else self.distance_km
-        if not km:
-            return True
-        speed = km / (seconds / 3600)
-        return self.min_speed_kmh <= speed <= self.max_speed_kmh
+        if km:
+            speed = km / (seconds / 3600)
+            if not (self.min_speed_kmh <= speed <= self.max_speed_kmh):
+                return False
+        # Only judge splits that match the configured legs. A partial or
+        # differently shaped set of splits means the event was timed some other
+        # way, not that the result is wrong.
+        if leg_seconds and len(leg_seconds) == len(self.legs):
+            if not all(leg.is_plausible(s) for leg, s in zip(self.legs, leg_seconds)):
+                return False
+        return True
 
     @property
     def default_route(self) -> Route | None:
@@ -149,9 +191,25 @@ DEFAULT_COURSES: dict[str, Course] = {
     ),
     AQUATHON: Course(
         name="Aquathon",
-        legs=[Leg("Swim", 0.6), Leg("Run", 3.5)],
-        # Real times cluster at 5-12 km/h over the combined 4.1 km. The tails
-        # are 24-hour timers at one end and 40-second "races" at the other.
+        legs=[
+            # Swimming: 691 recorded splits run 1.1-9.6 km/h, median 2.9 (about
+            # 2:06/100 m). The ceiling of 6.5 km/h is 600 m in 5:32, or 55 s per
+            # 100 m - quicker than the 800 m freestyle world-record pace, so
+            # nothing above it is a swim. The floor of 0.9 is 600 m in 40
+            # minutes, slower than walking through the water, and catches a
+            # split left running into the transition.
+            Leg("Swim", 0.6, min_speed_kmh=0.9, max_speed_kmh=6.5),
+            # Running: 691 splits run 5.5-24.9 km/h, median 12.3 (4:53/km). The
+            # ceiling of 19 km/h is 3.5 km in 11:03, faster than anyone in the
+            # club has ever run it; the two splits above it are 3.5 km quicker
+            # than the world record for the distance.
+            Leg("Run", 3.5, min_speed_kmh=3.0, max_speed_kmh=19.0),
+        ],
+        # Over the combined 4.1 km, real finishers run 3.9-12.4 km/h. The tails
+        # outside these bounds are 24-hour timers at one end and 40-second
+        # "races" at the other. The per-leg bounds above do the finer work: they
+        # catch five results whose totals sit comfortably inside this range but
+        # whose splits cannot both be real.
         min_speed_kmh=3.0,
         max_speed_kmh=14.0,
     ),
@@ -165,6 +223,18 @@ def _default_bound(race_type: str, which: str) -> float:
     return course.min_speed_kmh if which == "min" else course.max_speed_kmh
 
 
+def _default_leg_bound(race_type: str, leg_name: str, which: str) -> float:
+    """The built-in bound for one named leg, for configs written before these
+    existed. Falling back to "no limit" would silently switch the per-leg filter
+    off for every install that already has a ``courses.json``."""
+    course = DEFAULT_COURSES.get(race_type)
+    if course is not None:
+        for leg in course.legs:
+            if leg.name == leg_name:
+                return leg.min_speed_kmh if which == "min" else leg.max_speed_kmh
+    return 0.0 if which == "min" else 1e6
+
+
 def load_courses(path: Path | None = None) -> dict[str, Course]:
     """Load course config, falling back to the built-in defaults."""
     config_path = path or CONFIG_PATH
@@ -174,7 +244,10 @@ def load_courses(path: Path | None = None) -> dict[str, Course]:
         return {
             key: Course(
                 course.name,
-                [Leg(leg.name, leg.distance_km) for leg in course.legs],
+                [
+                    Leg(leg.name, leg.distance_km, leg.min_speed_kmh, leg.max_speed_kmh)
+                    for leg in course.legs
+                ],
                 [
                     Route(r.name, r.distance_km, r.min_km, r.max_km, r.enabled)
                     for r in course.routes
@@ -190,7 +263,23 @@ def load_courses(path: Path | None = None) -> dict[str, Course]:
     for race_type, spec in payload.items():
         courses[race_type] = Course(
             name=spec.get("name", race_type),
-            legs=[Leg(leg["name"], float(leg["distance_km"])) for leg in spec.get("legs", [])],
+            legs=[
+                Leg(
+                    leg["name"],
+                    float(leg["distance_km"]),
+                    float(
+                        leg.get(
+                            "min_speed_kmh", _default_leg_bound(race_type, leg["name"], "min")
+                        )
+                    ),
+                    float(
+                        leg.get(
+                            "max_speed_kmh", _default_leg_bound(race_type, leg["name"], "max")
+                        )
+                    ),
+                )
+                for leg in spec.get("legs", [])
+            ],
             # Fall back to the built-in bounds, not to "no limit": a config
             # written before these existed must not silently disable filtering.
             min_speed_kmh=float(spec.get("min_speed_kmh", _default_bound(race_type, "min"))),
@@ -246,10 +335,13 @@ def is_plausible(
     seconds: float,
     distance_km: float | None = None,
     courses: dict[str, Course] | None = None,
+    leg_seconds: list[float] | None = None,
 ) -> bool:
     """Whether one result is physically believable for its race type."""
     course = course_for(race_type, courses)
-    return course.is_plausible(seconds, distance_km) if course else seconds > 0
+    if course is None:
+        return seconds > 0
+    return course.is_plausible(seconds, distance_km, leg_seconds)
 
 
 def enabled_routes(race_type: str, courses: dict[str, Course] | None = None) -> list[Route]:

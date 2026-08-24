@@ -193,6 +193,28 @@ way — one **Not mine** at a time.
 identities in bulk. That is consistent with the honour system the intro already
 describes, but it is a bigger lever than a single claim.
 
+### The tools live on their own host
+
+`tri-admin.jamescarron.cloud`, not a section of the club's page.
+
+- **A hyphen, not an underscore.** Traefik takes a certificate per router via
+  Let's Encrypt DNS-01, and LE will not issue for a hostname containing an
+  underscore — `tri_admin` would never have got a certificate.
+- **The separation is the server's, not the markup's.** `CTC_ADMIN_HOST` gates
+  the three merge endpoints on the `Host` header: they answer there and 404 on
+  `tri.`. The club page contains no trace of them — not a hidden section, not a
+  dormant fetch, nothing in view-source, and a test asserts it stays that way.
+  Hiding a button with CSS would have left the API open to anyone with devtools.
+- **Unset locally**, where the tools sit at `/admin` — bound to loopback, there
+  is nobody to separate from.
+- **The subdomain is not a secret.** Per-router certs land in public
+  Certificate Transparency logs the moment they first serve. It stops members
+  wandering in; the login password is what stops anyone else.
+- Same container, same volume, second Traefik router pointing at the same
+  service — so there is only ever one writer to `identity.json`.
+
+No DNS work: the wildcard record covers it.
+
 ### Decisions taken
 
 - **CI: not doing it.** Deploys stay manual — build on the box, bump the SHA,
@@ -211,4 +233,4 @@ describes, but it is a bigger lever than a single claim.
 - **Aquathon identities are still unconsolidated** — the tooling now exists, but
   nobody has worked through the 129 suggestions. Doing so should retire the
   draft warning and give that tab enough regulars for a conditions note.
-- **This second batch is not deployed.**
+- **Nobody has worked through the 129 suggestions yet.**

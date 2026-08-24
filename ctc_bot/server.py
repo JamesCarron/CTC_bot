@@ -27,6 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote_plus, urlparse
 
+from . import admin_page
 from . import auth
 from . import dashboard
 from . import identity as idn
@@ -45,6 +46,19 @@ DEFAULT_PORT = int(os.environ.get("PORT", "8777"))
 # makes that failure mode fail closed instead of publishing a write API to the
 # internet. Ships on; turned off once the password prompt is confirmed working.
 READ_ONLY = os.environ.get("CTC_READ_ONLY", "").strip().lower() in {"1", "true", "yes", "on"}
+
+# The host the name-tidying tools answer on, e.g. tri-admin.jamescarron.cloud.
+# Set it and those tools exist *only* there: the club's page carries no trace of
+# them, and their endpoints 404 on it. Leave it unset - the local install - and
+# they live at /admin, because on 127.0.0.1 there is nobody to separate from.
+#
+# Worth being honest about what this is. Traefik takes a certificate per router,
+# so the subdomain shows up in public Certificate Transparency logs as soon as
+# it serves; it is not a secret. It stops members wandering into a tool that
+# rewrites who owns which results. The password is what stops anyone else.
+ADMIN_HOST = os.environ.get("CTC_ADMIN_HOST", "").strip().lower()
+
+_ADMIN_PATHS = ("/api/merge-suggestions", "/api/merge", "/api/dismiss-merge")
 
 _WRITE_PATHS = (
     "/api/claim", "/api/adopt", "/api/disown",
@@ -108,6 +122,24 @@ class _Handler(BaseHTTPRequestHandler):
         forwarded = (self.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
         return forwarded or self.client_address[0]
 
+    @property
+    def _host(self) -> str:
+        """The name the visitor actually typed.
+
+        Behind Traefik the socket knows nothing useful, but the Host header is
+        forwarded intact. Port stripped: a local run reaches this as
+        ``127.0.0.1:8777``.
+        """
+        return (self.headers.get("Host") or "").split(":")[0].strip().lower()
+
+    def _is_admin_host(self) -> bool:
+        """Whether this request may see the name-tidying tools.
+
+        With no admin host configured every request qualifies - that is the
+        local install, bound to loopback. With one configured, only it does.
+        """
+        return not ADMIN_HOST or self._host == ADMIN_HOST
+
     def _authenticated(self) -> bool:
         return not auth.is_enabled() or auth.verify_token(self._cookie(auth.COOKIE_NAME))
 
@@ -147,9 +179,28 @@ class _Handler(BaseHTTPRequestHandler):
             self._deny(parsed.path)
             return
 
+        # Everything below the admin tools is refused off the admin host, so
+        # the club's site cannot reach them even if somebody knows the paths.
+        if parsed.path in _ADMIN_PATHS and not self._is_admin_host():
+            self._json(404, {"ok": False, "message": "Not found"})
+            return
+
         if parsed.path in ("/", "/index.html", "/dashboard.html"):
+            # On the admin host, the root *is* the admin page - there is no
+            # link to find, and no club dashboard sitting behind it.
+            if ADMIN_HOST and self._host == ADMIN_HOST:
+                self._send(200, admin_page.render().encode("utf-8"),
+                           "text/html; charset=utf-8")
+                return
             path = dashboard.build_if_stale()
             self._send(200, path.read_bytes(), "text/html; charset=utf-8")
+        elif parsed.path == "/admin":
+            if ADMIN_HOST:
+                # Deployed: this belongs on the admin host's root, not here.
+                self._json(404, {"ok": False, "message": "Not found"})
+                return
+            self._send(200, admin_page.render().encode("utf-8"),
+                       "text/html; charset=utf-8")
         elif parsed.path == "/api/rows":
             query = (parse_qs(parsed.query).get("q") or [""])[0]
             self._json(200, {"ok": True, "rows": search_rows(query)})
@@ -255,6 +306,10 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(404, {"ok": False, "message": "Not found"})
             return
 
+        if self.path in _ADMIN_PATHS and not self._is_admin_host():
+            self._json(404, {"ok": False, "message": "Not found"})
+            return
+
         try:
             request = json.loads(self._read_body() or b"{}")
         except (ValueError, TypeError):
@@ -340,7 +395,15 @@ def _candidate(stored, row: dict) -> idn.Candidate:
 # ---- merging duplicate spellings ----------------------------------------
 
 
-def merge_suggestions(limit: int = 80) -> list[dict]:
+# High enough that the club's 129 suggestions all render, low enough that a
+# pathological dataset cannot build a page nobody can load. The tool has its own
+# host and its own filters now; a cap that quietly hid 49 of the 53 weak
+# suggestions - while the filter button still counted them - was worse than no
+# cap at all.
+SUGGESTION_LIMIT = 500
+
+
+def merge_suggestions(limit: int = SUGGESTION_LIMIT) -> list[dict]:
     """Spellings that look like one person, for an admin to confirm.
 
     Read-only. Nothing here changes a single claim - see :mod:`ctc_bot.merge`

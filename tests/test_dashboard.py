@@ -157,11 +157,14 @@ def test_a_disabled_route_is_absent_from_the_page(events, monkeypatch):
 
     keys = [s["key"] for s in payload["series"]]
     assert "time_trial|Long (13.8 km)" not in keys
-    assert any(h["distance"] == 13.8 for h in payload["hidden"])
 
     # and no athlete carries a run from the hidden series
     for athlete in payload["athletes"]:
         assert all(run["series"] in keys for run in athlete["runs"])
+
+    # The events are still stored, which is what makes hiding reversible -
+    # see test_enabling_a_route_brings_its_history_back.
+    assert any(stored.code == "long1" for stored in events)
 
 
 def test_enabling_a_route_brings_its_history_back(events, tmp_path):

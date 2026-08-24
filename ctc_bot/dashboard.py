@@ -231,19 +231,6 @@ def build_payload(stored_events, registry: idn.Registry) -> dict:
             for athlete, best, count in table
         ]
 
-    # --- courses ---
-    course_payload = []
-    for race_type, course in courses.items():
-        course_payload.append(
-            {
-                "type": race_type,
-                "name": course.name,
-                "distance": course.distance_km,
-                "legs": [{"name": leg.name, "km": leg.distance_km} for leg in course.legs],
-                "routes": [{"name": r.name, "km": r.distance_km} for r in course.routes],
-            }
-        )
-
     return {
         "generated": date.today().isoformat(),
         "summary": {
@@ -259,15 +246,8 @@ def build_payload(stored_events, registry: idn.Registry) -> dict:
         },
         "seriesLabels": {key: label_for(key) for key in series_keys},
         "series": series_payload,
-        "hidden": [
-            {"label": series_label(f"{race_type}|{route.name}"), "distance": route.distance_km}
-            for race_type, course in courses.items()
-            for route in course.routes
-            if not route.enabled
-        ],
         "athletes": athlete_payload,
         "standings": standings_payload,
-        "courses": course_payload,
     }
 
 
@@ -596,11 +576,6 @@ _TEMPLATE = r"""<!doctype html>
     <div class="scroll"><table id="standings"></table></div>
   </section>
 
-  <section>
-    <h2>How this is measured</h2>
-    <div id="courses"></div>
-    <div id="hidden-note"></div>
-  </section>
 </main>
 
 <script>
@@ -1305,22 +1280,6 @@ function renderStandings() {
       <td class="num">${r.best}</td><td class="num">${fmt(r.speed, 2)}</td>
       <td class="num">${r.races}</td><td>${r.when}</td></tr>`).join("") + "</tbody>";
 }
-
-/* ---------- footer sections ---------- */
-$("courses").innerHTML = DATA.courses.map(c => `
-  <p class="hint" style="margin:0 0 8px"><b>${esc(c.name)}</b> —
-    ${c.legs.map(l => `${esc(l.name)} ${l.km} km`).join(" + ")}
-    ${c.routes.length ? "· routes: " + c.routes.map(r => `${esc(r.name)} (${r.km} km)`).join(", ") : ""}</p>`).join("") +
-  `<p class="hint">Distances are configured, not taken from each event page: the pages
-   disagree with themselves. Results implying an impossible speed are dropped — each
-   timed leg as well as the whole course, because a believable total can hide one
-   impossible split. Hand timing misfires both ways.</p>`;
-
-$("hidden-note").innerHTML = DATA.hidden.length
-  ? `<div class="note">Hidden for now: ${DATA.hidden.map(h => esc(h.label)).join(", ")}.
-     Those events are still stored — re-enable with
-     <code>ctc courses -- --enable "time_trial:Long (13.8 km)"</code>.</div>`
-  : "";
 
 /* ---------- redraw on resize ---------- */
 // The chart is sized to its container at render time, so a rotation or a

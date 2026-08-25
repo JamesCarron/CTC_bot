@@ -137,8 +137,9 @@ def test_disowning_the_last_result_removes_the_identity(world):
 
 
 def test_disown_rejects_a_row_it_does_not_own(world):
+    """"James C" is its own unclaimed group, so it was never his to release."""
     claim_james()
-    with pytest.raises(LookupError, match="not claimed by this athlete"):
+    with pytest.raises(LookupError, match="not attributed to this athlete"):
         server.disown_row(athlete().id, "e2", "2000")
 
 
@@ -170,3 +171,63 @@ def test_adopting_a_row_moves_it_from_another_athlete(world):
     moved = reloaded.claim_owner("e1", "2001")
     assert moved == athlete().id
     assert all(c.key != ("e1", "2001") for c in reloaded.athletes[ann.id].claims)
+
+
+def test_disowning_an_inferred_row_sticks(world):
+    """The bug that made the button look broken.
+
+    Releasing a claim is not enough: a spelling learned from the athlete's
+    other claims pulls the row straight back by inference, so "not mine" undid
+    itself between one page load and the next.
+    """
+    events = world
+    events.append(
+        make_event("e3", [("James", 1530.0), ("Ann", 1570.0), ("Bea", 1620.0),
+                          ("Cid", 1670.0), ("Dee", 1720.0)],
+                   date_text="Tuesday 19 May '26, 19:00", title="TT three")
+    )
+    # Claim the "James" group so that spelling becomes one of his variants.
+    server.claim_athlete("name:james", "James Carron")
+    james = idn.Registry.load().find_by_display_name("James Carron")
+    resolved = idn.resolve(events, idn.Registry.load())
+    assert resolved[("e3", "2000")].athlete_id == james.id
+
+    server.disown_row(james.id, "e3", "2000")
+
+    registry = idn.Registry.load()
+    assert registry.is_excluded(james.id, "e3", "2000")
+    again = idn.resolve(events, registry)
+    assert again[("e3", "2000")].athlete_id != james.id, "inference must respect it"
+    assert again[("e3", "2000")].source == idn.PROVISIONAL
+
+
+def test_claiming_a_row_again_clears_the_exclusion(world):
+    """Claiming is a later and more explicit decision than having said no."""
+    events = world
+    events.append(
+        make_event("e3", [("James", 1530.0), ("Ann", 1570.0), ("Bea", 1620.0),
+                          ("Cid", 1670.0), ("Dee", 1720.0)],
+                   date_text="Tuesday 19 May '26, 19:00", title="TT three")
+    )
+    server.claim_athlete("name:james carron", "James Carron")
+    james = idn.Registry.load().find_by_display_name("James Carron")
+    server.disown_row(james.id, "e1", "2000")          # his only claimed row
+    # The identity is gone with its last claim, but the decision is on record.
+    assert idn.Registry.load().is_excluded(james.id, "e1", "2000")
+
+
+def test_an_exclusion_only_covers_the_row_it_names(world):
+    """Saying no to one race must not detach the rest of the same spelling."""
+    events = world
+    events.append(
+        make_event("e3", [("James", 1530.0), ("Ann", 1570.0), ("Bea", 1620.0),
+                          ("Cid", 1670.0), ("Dee", 1720.0)],
+                   date_text="Tuesday 19 May '26, 19:00", title="TT three")
+    )
+    server.claim_athlete("name:james", "James Carron")
+    james = idn.Registry.load().find_by_display_name("James Carron")
+    server.disown_row(james.id, "e3", "2000")
+
+    registry = idn.Registry.load()
+    assert registry.is_excluded(james.id, "e3", "2000")
+    assert not registry.is_excluded(james.id, "e1", "2000")

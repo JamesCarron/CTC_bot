@@ -656,11 +656,20 @@ def adopt_row(athlete_id: str, event: str, race_id: str) -> str:
 
 
 def disown_row(athlete_id: str, event: str, race_id: str) -> str:
-    """Detach one result, returning it to the name printed on the entry list.
+    """Detach one result from an athlete for good.
 
-    Nothing is deleted. Releasing the claim lets the row fall back to being
-    grouped by its original name, exactly as it was before anyone claimed it -
-    which is what makes a mistaken claim safe to undo.
+    Nothing is deleted - the row goes back to being grouped by the name printed
+    on the entry list, exactly as it was before anyone claimed it.
+
+    Releasing the claim is not enough on its own, and this is the bug that made
+    the button look broken. A spelling learned from an athlete's other claims
+    pulls every matching row back by *inference* the moment the claim goes, so
+    saying "not mine" about a row entered as *James* - a spelling James Carron
+    claims sixteen times elsewhere - undid itself before the page had finished
+    reloading. The decision is recorded as well, and inference respects it.
+
+    That also means this works on a row nobody claimed. An inferred row is the
+    case most likely to be wrong, since nobody ever looked at it.
     """
     registry = idn.Registry.load()
     athlete = registry.athletes.get(athlete_id)
@@ -668,11 +677,25 @@ def disown_row(athlete_id: str, event: str, race_id: str) -> str:
         raise LookupError("No such athlete.")
 
     claim = next((c for c in athlete.claims if c.key == (event, str(race_id))), None)
-    if claim is None:
-        raise LookupError("That result is not claimed by this athlete.")
+    if claim is not None:
+        original = claim.name.strip() or "(unnamed)"
+        registry.release(athlete_id, event, race_id)
+    else:
+        # Inferred rather than claimed: the name on the entry list is whatever
+        # the event recorded, so read it from there.
+        stored = next((s for s in _curated_events() if s.code == event), None)
+        row = _find_row(stored, race_id) if stored else None
+        if row is None:
+            raise LookupError("That result is not in the event.")
+        # Only a row currently attributed to this athlete can be taken off
+        # them. Anything else is somebody else's result, and recording that it
+        # is "not theirs" would be a decision about a row they never had.
+        using = registry.athletes_using(idn.normalise(row.get("Name") or ""))
+        if [a.id for a in using] != [athlete_id]:
+            raise LookupError("That result is not attributed to this athlete.")
+        original = (row.get("Name") or "").strip() or "(unnamed)"
 
-    original = claim.name.strip() or "(unnamed)"
-    registry.release(athlete_id, event, race_id)
+    registry.exclude(athlete_id, event, race_id)
 
     # An athlete with nothing left is no longer a confirmed identity; leaving an
     # empty shell behind would put a person with no races in the standings.

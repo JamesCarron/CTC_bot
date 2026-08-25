@@ -949,12 +949,17 @@ function showAthlete(a) {
   const allRuns = a.seriesRuns;
   const years = [...new Set(allRuns.map(r => r.season))].sort((x, y) => y - x);
 
-  // Default to the athlete's most recent season. "All time" is one click away,
-  // but the question people arrive with is "how am I going this year".
-  // state.year starts as null so that an explicit "all" is respected, while an
-  // unset or stale year falls back to the newest season available.
+  // Default to all time. The chart used to open on the latest season, back
+  // when a multi-season view was two thirds empty winter and a line drawn
+  // across it. Now that the axis breaks between seasons, the whole history is
+  // the more useful thing to land on - it is what answers "am I getting
+  // faster", and a single season is one click away.
+  //
+  // A stale year - one this athlete has no races in - also falls back to all
+  // time rather than to their newest season, so switching between people does
+  // not silently change which question the chart is answering.
   if (state.year === null || (state.year !== "all" && !years.includes(state.year))) {
-    state.year = years[0];
+    state.year = "all";
   }
 
   const runs = state.year === "all" ? allRuns : allRuns.filter(r => r.season === state.year);
@@ -1111,13 +1116,16 @@ function rowActions(r) {
     ? `<button class="link-btn js-reset-time" data-e="${esc(r.event)}" data-r="${esc(r.raceId)}"
          title="Restore the published time">Reset</button>`
     : "";
-  const disown = r.claimed
-    ? `<button class="link-btn disown js-disown" data-e="${esc(r.event)}" data-r="${esc(r.raceId)}"
-         title="Release this result back to the name on the entry list. If that name is a
-spelling of your own it stays listed here, but only as a match by name — use it on a
-result somebody else rode.">Not mine</button>`
-    : `<span class="pill" title="Matched by name, not individually confirmed">by name</span>`;
-  return edit + reset + disown;
+  // Offered on an inferred row too, not just a claimed one. An inferred row is
+  // the case most likely to be wrong - nobody ever looked at it, it is here
+  // only because the spelling matched - and until this was fixed there was no
+  // control on it at all.
+  const disown = `<button class="link-btn disown js-disown"
+       data-e="${esc(r.event)}" data-r="${esc(r.raceId)}"
+       title="Take this result off ${esc(r.claimed ? "your list" : "your list. It is here because the entry name matched, not because anyone confirmed it")}.
+It goes back to the name on the entry list and stays off unless you add it again.">Not mine</button>`;
+  const how = r.claimed ? "" : ` <span class="pill" title="Matched by name, not individually confirmed">by name</span>`;
+  return edit + reset + disown + how;
 }
 
 /* A race the timing system never captured. */

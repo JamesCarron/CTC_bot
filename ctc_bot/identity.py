@@ -197,6 +197,7 @@ class Registry:
         athletes: dict[str, Athlete] | None = None,
         opted_out: dict[str, dict] | None = None,
         dismissed_merges: list[str] | None = None,
+        excluded: dict[str, list] | None = None,
     ):
         self.athletes: dict[str, Athlete] = athletes or {}
         # athlete id -> {"name": ..., "at": ...}. The name is kept so an admin
@@ -207,6 +208,18 @@ class Registry:
         # a suggestion list that keeps re-offering what you just turned down
         # is one nobody reads twice.
         self.dismissed_merges: set[str] = set(dismissed_merges or [])
+        # athlete id -> the rows that are definitely NOT theirs.
+        #
+        # Releasing a claim is not enough on its own. A spelling learned from an
+        # athlete's other claims pulls every matching row back by inference the
+        # moment the claim goes, so "Not mine" on a row named *James* - a
+        # spelling James Carron claims sixteen times elsewhere - undid itself
+        # between one page load and the next. This is the record of the
+        # decision, which inference then has to respect.
+        self.excluded: dict[str, set[tuple[str, str]]] = {
+            athlete_id: {(str(e), str(r)) for e, r in rows}
+            for athlete_id, rows in (excluded or {}).items()
+        }
 
     # ---- persistence -------------------------------------------------
 
@@ -228,6 +241,7 @@ class Registry:
             athletes,
             payload.get("opted_out", {}),
             payload.get("dismissed_merges", []),
+            payload.get("excluded", {}),
         )
 
     def save(self, path: Path | None = None) -> Path:
@@ -239,6 +253,11 @@ class Registry:
                     "version": 1,
                     "opted_out": self.opted_out,
                     "dismissed_merges": sorted(self.dismissed_merges),
+                    "excluded": {
+                        athlete_id: sorted([e, r] for e, r in rows)
+                        for athlete_id, rows in sorted(self.excluded.items())
+                        if rows
+                    },
                     "athletes": {
                         athlete_id: {
                             "display_name": athlete.display_name,
@@ -340,6 +359,9 @@ class Registry:
             key = (candidate.event, candidate.race_id)
             for other in self.athletes.values():
                 other.claims = [claim for claim in other.claims if claim.key != key]
+            # Claiming a row is a later and more explicit decision than having
+            # once said it was not yours, so it clears any standing exclusion.
+            self.include(athlete.id, candidate.event, candidate.race_id)
             athlete.claims.append(
                 Claim(event=candidate.event, race_id=candidate.race_id, name=candidate.name)
             )
@@ -362,6 +384,25 @@ class Registry:
 
     def has_opted_out(self, athlete_id: str | None) -> bool:
         return bool(athlete_id) and athlete_id in self.opted_out
+
+    # ---- rows that are definitely not somebody's ---------------------
+
+    def exclude(self, athlete_id: str, event: str, race_id: str) -> None:
+        """Record that this row is not this athlete's, whatever the name says."""
+        self.excluded.setdefault(athlete_id, set()).add((str(event), str(race_id)))
+
+    def include(self, athlete_id: str, event: str, race_id: str) -> bool:
+        """Undo an exclusion. Returns whether there was one."""
+        rows = self.excluded.get(athlete_id)
+        if not rows or (str(event), str(race_id)) not in rows:
+            return False
+        rows.discard((str(event), str(race_id)))
+        if not rows:
+            del self.excluded[athlete_id]
+        return True
+
+    def is_excluded(self, athlete_id: str, event: str, race_id: str) -> bool:
+        return (str(event), str(race_id)) in self.excluded.get(athlete_id, ())
 
     def release(self, athlete_id: str, event: str, race_id: str) -> None:
         athlete = self.athletes.get(athlete_id)
@@ -397,7 +438,8 @@ def resolve(stored_events, registry: Registry) -> dict[tuple[str, str], Resoluti
 
     0. **placeholder** - not a person ("unknown", "name", a bare bib number).
     1. **claimed** - the athlete ticked this row.
-    2. **inferred** - the spelling was learned from exactly one athlete's claims.
+    2. **inferred** - the spelling was learned from exactly one athlete's claims,
+       and that athlete has not said this particular row is not theirs.
     3. **ambiguous** - the spelling belongs to two or more claimed athletes.
     4. **contested** - two people share the name inside one event.
     5. **provisional** - unclaimed, but the spelling is unique, so group by name.
@@ -434,7 +476,13 @@ def resolve(stored_events, registry: Registry) -> dict[tuple[str, str], Resoluti
                 resolutions[key] = Resolution(None, "", OPTED_OUT)
                 continue
 
-            owners = registry.athletes_using(name)
+            # An excluded athlete is not a candidate for this row, however
+            # well the spelling matches - that is the whole point of saying
+            # "not mine" about a row nobody ever claimed.
+            owners = [
+                a for a in registry.athletes_using(name)
+                if not registry.is_excluded(a.id, stored.code, race_id)
+            ]
             if len(owners) == 1:
                 if registry.has_opted_out(owners[0].id):
                     resolutions[key] = Resolution(None, "", OPTED_OUT)

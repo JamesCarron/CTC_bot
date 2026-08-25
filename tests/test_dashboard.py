@@ -319,7 +319,7 @@ def test_route_suffix_is_dropped_on_request():
 
 
 def test_page_offers_year_views_and_an_all_time_view(page):
-    """The chart is split per season, defaulting to the athlete's latest."""
+    """The chart is split per season, defaulting to all time."""
     assert "year-tabs" in page
     assert "All time" in page
     assert 'state.year' in page
@@ -366,12 +366,14 @@ def test_there_is_a_portrait_breakpoint(page):
     assert "grid-template-columns:1fr" in page
 
 
-def test_year_view_defaults_to_the_latest_season(page):
-    """state.year starts null so an explicit "all" is respected, while an unset
-    or stale year falls back to the newest season the athlete raced."""
-    assert 'year: null }' in page
-    assert "state.year = years[0];" in page
-    assert 'state.year === null || (state.year !== "all"' in page
+def test_year_view_defaults_to_all_time(page):
+    """It opened on the latest season back when a multi-season chart was two
+    thirds empty winter. Now that the axis breaks between seasons, the whole
+    history is the more useful thing to land on, and a stale year falls back
+    there too rather than silently changing the question."""
+    assert 'year: null }' in page          # so an explicit choice is respected
+    assert 'state.year = "all";' in page
+    assert "state.year = years[0];" not in page
 
 
 def test_a_single_season_chart_is_labelled_by_month(page):

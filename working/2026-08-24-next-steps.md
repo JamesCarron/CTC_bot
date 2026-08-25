@@ -1,236 +1,125 @@
-# CTC_bot — next steps
+# CTC_bot — state and next steps
 
-Written at a quota checkpoint on 2026-08-24. **All five items were implemented on
-2026-08-25** — this file now records what was done and what is still outstanding.
+Last updated **2026-08-25**. Started as a quota-checkpoint list; now a running
+record of where the project stands and what is left.
 
-Live at `https://tri.jamescarron.cloud` (password `CTC2026`), 348 tests passing.
-Deployed 2026-08-25 as `6403c6f`, infra `f18e31e`.
+| | |
+|---|---|
+| Club site | `https://tri.jamescarron.cloud` — password `CTC2026` |
+| Admin tools | `https://tri-admin.jamescarron.cloud` — same password, separate cookie |
+| Deployed | CTC_bot `fda187f`, infra `1ffc107` |
+| Tests | 392 passing |
+| Registry | 136 confirmed athletes, 1,265 claims, 475 listed, 119 verified |
 
-**Deploy, as actually done** (CI is still not running, so the image is built on
-the box):
+---
+
+## Deploying
+
+**CI is not running and is not going to be** — deploys are manual by decision,
+not by neglect. The image is built on the box because GitHub Actions never got
+the two settings changes it needed.
 
 ```bash
-ssh -i ~/.ssh/id_ed25519_hetzner admin@100.68.148.7   # Tailscale IP; :22 is closed on the public IP
-cd /opt/apps-src/CTC_bot && git pull --ff-only
+# SSH only works over Tailscale. Port 22 is refused on the public IP that
+# ~/.ssh/config points `apps-01` at, so that config entry does not work as-is.
+ssh -i ~/.ssh/id_ed25519_hetzner admin@100.68.148.7
+
+cd /opt/apps-src/CTC_bot && git pull --ff-only origin main
 docker build -t ghcr.io/jamescarron/tri:<full-sha> .
+
 # then locally: bump the tag in infra/apps/tri/compose.yml, commit, push
 git -C /opt/infra pull --ff-only
-cd /opt/infra/apps/tri && docker compose -p tri --env-file /opt/infra/config.env up -d --no-build
+cd /opt/infra/apps/tri
+docker compose -p tri --env-file /opt/infra/config.env up -d --no-build
 ```
 
-`--env-file /opt/infra/config.env` supplies `DOMAIN` for the Traefik host rule;
-without it the router rule comes out as ``Host(`tri.`)`` and the site stops
-resolving. `-p tri` matches the running project name.
+Two things that bite if forgotten:
+
+- **`--env-file /opt/infra/config.env`** supplies `DOMAIN`. Without it the
+  Traefik rule comes out as ``Host(`tri.`)`` and the site stops resolving.
+- **`-p tri`** matches the running project name. A different one creates a
+  second stack against an empty volume.
+
+Arcane's git-watch pulls the infra commit but cannot deploy it: it expects the
+image in GHCR, and a locally built tag is not there. Hence the manual compose.
 
 ---
 
-## 1. "Not mine" button — DONE
+## Things worth knowing that the code does not say
 
-Two causes, both real.
+**Racing runs May to September.** In-season gaps are 7 days (time trial) and 14
+(aquathon); winter gaps run 238–406. That is why the chart breaks its axis
+between seasons, and why an all-time view on a plain timeline was two thirds
+empty.
 
-### 1a. Class collision (confirmed live)
+**The aquathon will never carry a conditions note, and that is correct.** The
+last race had 12 people in it, six of whom had never raced another aquathon
+within two months. 197 people have raced exactly one aquathon and never come
+back; only 51 have four or more. Even a ±365-day window yields 3 regulars
+against a threshold of 5. This was assumed to be a name-consolidation problem
+and was not — consolidating the names changed nothing here.
 
-`disown` was doing two jobs: "styled red" and "is a disown control". Three
-buttons wore it — remove-a-hand-added-result, Not mine, and the opt-out button
-added in the previous deploy. The binder selected
-`button.disown:not(.remove-added)`, which matched **16** buttons on James
-Carron's panel when only 15 were Not-mine. The extra one was opt-out, bound to
-`/api/disown` with `undefined` ids; `wireOptOut` overwrote it afterwards, so
-opting out worked purely by luck of ordering.
+**A released claim comes straight back by inference.** The most
+counter-intuitive thing in the identity model. Releasing a claim on a row
+entered as *James* does nothing durable if the athlete claims that spelling
+elsewhere, because `resolve()` re-attaches it on the next build. `Registry`
+therefore keeps an **exclusion** record, which inference respects and a fresh
+claim clears. Anything touching `resolve()` must keep that ordering.
 
-**Fixed** by splitting behaviour classes from cosmetic ones: `js-disown`,
-`js-optout`, `js-remove-added`, `js-edit-time`, `js-reset-time`, `js-adopt`.
-`disown` is now styling only. Verified in the browser: the new selector matches
-exactly 15.
+**Merge suggestions never merge.** `merge.py` proposes; a person confirms. Its
+rules are all scar tissue — the first version chained *John O* to O'Connell,
+O'Driscoll and O'Shaughnessy and reported three men as one person with 103
+races. Full names are grouped first, abbreviations attached only where exactly
+one group can take them.
 
-### 1b. It worked, and looked like it hadn't
+**The admin subdomain is not a secret.** Traefik takes a certificate per router,
+so `tri-admin.jamescarron.cloud` is in public Certificate Transparency logs.
+The separation is enforced by the server — `CTC_ADMIN_HOST` gates the merge
+endpoints on the `Host` header and they 404 on the club site — but the password
+is the same one, so anyone who can see the club site can use the tools if they
+find the address.
 
-`/api/disown` was fine all along — calling `disown_row` directly returned
-*"Released back to 'James', as printed on the entry list."* The problem was
-feedback. `#row-msg` lives at the foot of the athlete panel, inside the "Add a
-result that is missing" box. A Not-mine click a screenful above it printed
-"Refresh to see it applied" off-screen and left the row exactly where it was.
-
-**Fixed**: every row action now reloads the page on success, so the change is
-the feedback. Failures never reload and are scrolled into view instead.
-
-To stop the reload dumping people back at the top, the tab, athlete and season
-now ride in the URL fragment (`#s=…&a=…&y=…`) — which also makes an athlete
-linkable. Verified end to end: clicked Not mine, page reloaded, James Carron
-still selected on the same season, disown buttons 15 → 14.
-
-### 1c. The subtler trap
-
-Releasing a row whose entry name is a spelling of your own puts it straight back
-by *inference* — it stays on the page, now marked "by name" instead of claimed.
-That is correct, but it looks like nothing happened. The button's tooltip now
-says so.
-
-## 2. Excluded-events list — DONE
-
-`<details>`, `#exc-count`, `#excluded` and the `excluded` array are gone.
-`summary.excluded` keeps the count. `curation` is untouched.
-
-## 3. Field-statistics wording — DONE
-
-The series subtitle is now just the year range. `z` and `pct` are out of the
-payload (the page is 732 KB → 699 KB), though still computed — item 5 needs the
-same field context. The chart tooltip dropped its z-score, and a hand-added
-result now reads "no recorded field" rather than "#0 of 0".
-`curation.MIN_FIELD_FOR_STATS` stays.
-
-## 4. Aquathon plausibility bounds — DONE, per leg
-
-The combined 3–14 km/h bound turned out to reject **nothing** among real
-finishers in included events — all 283 rejections were `TmResultSec <= 0`, i.e.
-DNS/DNF. Real finishers run 3.9–12.4 km/h, comfortably inside. So the combined
-bound was not the problem; the missing check was per-leg.
-
-`Leg` now carries its own bounds, and `Course.is_plausible` checks the splits
-when they line up with the configured legs:
-
-| Leg | km | min | max | max means |
-|---|---|---|---|---|
-| Swim | 0.6 | 0.9 | 6.5 | 600 m in 5:32 — quicker than the 800 m free world record |
-| Run | 3.5 | 3.0 | 19.0 | 3.5 km in 11:03 — quicker than anyone in the club |
-
-Measured from 691 real splits: swim 1.1–9.6 km/h (median 2.9), run 5.5–24.9
-(median 12.3).
-
-**Caught 5 results** whose totals looked perfectly ordinary but whose splits
-cannot both be real — e.g. a 19:40 swim paired with an 8:26 run for 3.5 km,
-faster than the world record. No event's curation verdict changed (148 included
-/ 61 excluded, before and after).
-
-The combined bound stays at 3–14. Widening the floor to 2.5 would readmit
-exactly two 97-minute results that the earlier notes already flagged as
-ambiguous; there is no evidence either way, so it was left alone.
-
-An untimed or differently-shaped split set is not judged — a missing split is
-not evidence of a bad one. Configs written before leg bounds existed fall back
-to the built-in bounds, not to "no limit".
-
-## 5. "How fast was tonight?" — DONE
-
-`metrics.race_conditions(athletes, series, event_code)` returns a `Conditions`
-or `None`. Each regular is compared with the **median of their own nearby
-results**, and the ratios combined with another median.
-
-- `CONDITIONS_WINDOW_DAYS = 60` — the trap the earlier notes identified. Using a
-  whole history measures form as much as weather; a club fitter in August than
-  in March would make every August read as fast conditions for ever. ±60 days is
-  short enough that fitness is flat and long enough that a weekly race fills it.
-- `CONDITIONS_MIN_BASELINE = 3` nearby races before an athlete counts.
-- `CONDITIONS_MIN_REGULARS = 5` — below that, say nothing at all.
-
-Bands: ≥+2.5% fast, ≥+1% quick, ±1% typical, −2.5% slow, below that hard. Taken
-from the spread actually observed (−3% to +4% across recent time trials), so the
-5% band the earlier notes suggested would never have fired.
-
-Shown as one sentence under the latest-race title:
-
-> **An ordinary evening.** The 9 regulars racing went about as fast as they
-> usually do.
-
-The aquathon prints nothing — too few consolidated identities to have five
-regulars, which is the honest answer and matches the draft warning on that tab.
+**Names carry curly apostrophes and combining accents.** 21 names use U+2019 and
+12 of those also exist with a straight quote; three arrive with the fada
+decomposed. `merge.py` folds both for comparison only — deliberately *not* in
+`identity.normalise`, which would re-group athletes with nobody confirming it.
 
 ---
 
----
+## Outstanding
 
-## Second batch — 2026-08-25, after an interview
+**Race-night polling has still never been confirmed against a live race.** The
+first window was Tuesday 25 Aug, 19:00–23:00. Check `docker logs tri-app-1` for
+whether it picked the results up, and whether it stopped once it had them.
 
-### Sweep cached transient failures as "never published" — FIXED
+**35 rows resolve as `contested`** — two people sharing a name inside one
+event. The merge tool cannot help; these need somebody who knows the club.
 
-`sweep()` did `cache.record(listing, None)` on *any* exception. A timeout, a
-500 or a mid-sweep sign-out was recorded identically to "this event has no
-public page", and `ListingCache.lookup` then skipped that listing for
-`UNPUBLISHED_RETRY_DAYS = 30`. One bad sweep could hide a genuinely new race
-for a month.
+**Nothing verifies the route assumption against GPS.** The two time-trial
+routes are matched by advertised distance alone.
 
-Now: `LookupError` (the definitive "no public code on the page") still caches;
-a `LoginError` stops the sweep early, since every remaining request would fail
-the same way; anything else counts as failed and caches nothing, so the next
-sweep retries it. `tests/test_scheduler.py` covers all three, and two of them
-fail against the old code.
+**Local `data/identity.json` is a copy of the live registry** pulled 2026-08-25,
+and the server has moved on by one exclusion since. Do not push local data up
+without pulling first. Backups are Hetzner's, by decision — whole-VM snapshots,
+so recovering one file means rolling the box back.
 
-**The documented session-expiry worry was overstated.** `poll_tonight` and
-`sweep` each call `session.login()` fresh (`scheduler.py:113`, `:151`), so a
-container running for weeks never reuses a stale session between runs. Only
-mid-run expiry was ever a risk, and that is what the early stop handles.
-
-### Merge suggestions — BUILT (`ctc_bot/merge.py`)
-
-Proposes spellings that look like one person; a human confirms. Nothing merges
-itself. Over the club's real data: **129 suggestions collapsing 184 spellings**,
-76 on strong evidence.
-
-Rules, each earned from a real failure:
-
-- **First name must match exactly.** Matching loosely on both names at once is
-  how *Colin Feeley* reaches *Colm Feely*.
-- **Two spellings in the same race are never proposed.** Nobody races twice, so
-  co-occurrence is proof of two people. Rejects 12 plausible-looking pairs.
-- **Full names are grouped first, abbreviations attached second, and only when
-  exactly one group could take them.** The first version chained *John O* to
-  O'Connell, O'Driscoll and O'Shaughnessy at once and reported three men as one
-  person with 103 races. It also absorbed *Peter Martin* into *Peter Meaney* and
-  *Mark MacManus* into *Mark McEntee*.
-- **Apostrophes and accents are folded for comparison only** — 21 names carry a
-  curly apostrophe and 12 of those also exist with a straight one; three arrive
-  with the fada as a combining accent. The folding is *not* pushed into
-  `identity.normalise`, because that would silently re-group athletes without
-  anybody confirming anything.
-
-Endpoints: `GET /api/merge-suggestions`, `POST /api/merge`,
-`POST /api/dismiss-merge` (both writes are in `_WRITE_PATHS`, so `CTC_READ_ONLY`
-covers them). Dismissals persist in `identity.json`. Applying uses the ordinary
-claim machinery, so a merge is a batch of normal claims and is undone the same
-way — one **Not mine** at a time.
-
-**Note before this goes live:** anyone with the site password can merge
-identities in bulk. That is consistent with the honour system the intro already
-describes, but it is a bigger lever than a single claim.
-
-### The tools live on their own host
-
-`tri-admin.jamescarron.cloud`, not a section of the club's page.
-
-- **A hyphen, not an underscore.** Traefik takes a certificate per router via
-  Let's Encrypt DNS-01, and LE will not issue for a hostname containing an
-  underscore — `tri_admin` would never have got a certificate.
-- **The separation is the server's, not the markup's.** `CTC_ADMIN_HOST` gates
-  the three merge endpoints on the `Host` header: they answer there and 404 on
-  `tri.`. The club page contains no trace of them — not a hidden section, not a
-  dormant fetch, nothing in view-source, and a test asserts it stays that way.
-  Hiding a button with CSS would have left the API open to anyone with devtools.
-- **Unset locally**, where the tools sit at `/admin` — bound to loopback, there
-  is nobody to separate from.
-- **The subdomain is not a secret.** Per-router certs land in public
-  Certificate Transparency logs the moment they first serve. It stops members
-  wandering in; the login password is what stops anyone else.
-- Same container, same volume, second Traefik router pointing at the same
-  service — so there is only ever one writer to `identity.json`.
-
-No DNS work: the wildcard record covers it.
-
-### Decisions taken
-
-- **CI: not doing it.** Deploys stay manual — build on the box, bump the SHA,
-  `docker compose up -d`. Procedure recorded above.
-- **Backups: settled.** Hetzner backups are enabled and considered sufficient.
-  Worth remembering that these are whole-VM snapshots, so recovering one file
-  means rolling the box back or mounting the snapshot; there is no per-file
-  history.
+**Session expiry mid-sweep** is handled by stopping early rather than
+re-logging-in. If sweeps start reporting "stopped early" regularly, that is the
+signal to add a retry.
 
 ---
 
-## Still outstanding
+## Recently done, for context
 
-- **Race-night polling is untested against a real race.** First live run is
-  Tuesday 19:00. Worth watching `docker logs tri-app-1`.
-- **Aquathon identities are still unconsolidated** — the tooling now exists, but
-  nobody has worked through the 129 suggestions. Doing so should retire the
-  draft warning and give that tab enough regulars for a conditions note.
-- **Nobody has worked through the 129 suggestions yet.**
+- **Identity** — merge suggestions (`merge.py`) on their own admin host; 129
+  suggestions confirmed, 89 duplicate identities collapsed, 17 → 136 athletes.
+  "Not mine" now sticks, and is offered on inferred rows too.
+- **Chart** — axis broken per season, all-time default, `km/h` no longer
+  overprinting the top tick value.
+- **Correctness** — per-leg aquathon plausibility bounds (caught 5 results whose
+  totals looked ordinary but whose splits could not both be real); the sweep no
+  longer caches a transient failure as "never published", which had been hiding
+  new races for up to 30 days.
+- **Page** — conditions note on the latest race, standings cut to 20, excluded
+  events and "How this is measured" removed, aquathon draft warning replaced
+  with a turnout caveat. 732 KB → ~600 KB.
